@@ -1,0 +1,151 @@
+import type { Appointment, Technician } from '../types';
+import { toDateKey } from '../dates';
+
+interface Props {
+  appointments: Appointment[];
+  technicians: Technician[];
+  selectedTech: string;
+  selectedBay: string;
+  currentDate: Date;
+  onViewDetail: (apt: Appointment) => void;
+}
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const COLORS = ['#2563EB', '#16A34A', '#9333EA', '#D97706', '#DC2626', '#0891B2'];
+
+export default function WeekView({ appointments, technicians, selectedTech, selectedBay, currentDate, onViewDetail }: Props) {
+  const weekStart = new Date(currentDate);
+  const day = weekStart.getDay();
+  const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1); // Start on Monday
+  weekStart.setDate(diff);
+  weekStart.setHours(0, 0, 0, 0);
+
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+
+  const weekEnd = new Date(days[6]);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  const filteredTechs = selectedTech
+    ? technicians.filter(t => t.id === selectedTech)
+    : technicians;
+
+  const weekAppts = appointments.filter(a => {
+    if (a.status !== 'confirmed') return false;
+    const s = new Date(a.scheduled_start);
+    if (!(s >= weekStart && s <= weekEnd)) return false;
+    if (selectedBay && a.service_bay_id !== selectedBay) return false;
+    return true;
+  });
+
+  const byDay: Record<string, Appointment[]> = {};
+  days.forEach(d => { byDay[toDateKey(d)] = []; });
+  weekAppts.forEach(a => {
+    const key = toDateKey(a.scheduled_start);
+    if (byDay[key]) byDay[key].push(a);
+  });
+
+  const now = new Date();
+  const todayStr = toDateKey(now);
+
+  return (
+    <div style={{ display: 'inline-block', minWidth: '100%', background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
+      {/* Day headers */}
+      <div style={{ display: 'inline-grid', gridTemplateColumns: 'repeat(7, minmax(110px, 1fr))', borderBottom: '2px solid #E5E7EB', background: '#F9FAFB', minWidth: '100%' }}>
+        {days.map((d, i) => {
+          const dateStr = toDateKey(d);
+          const isToday = dateStr === todayStr;
+          return (
+            <div key={i} style={{
+              padding: '10px 8px', textAlign: 'center',
+              borderLeft: i > 0 ? '1px solid #E5E7EB' : 'none',
+              borderRight: i === days.length - 1 ? '1px solid #E5E7EB' : 'none',
+            }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: isToday ? '#2563EB' : '#6B7280', marginBottom: '2px' }}>
+                {d.toLocaleDateString('en-US', { weekday: 'short' })}
+              </div>
+              <div style={{
+                fontSize: isToday ? '18px' : '14px', fontWeight: 700,
+                color: isToday ? '#2563EB' : '#111827',
+                width: isToday ? '32px' : 'auto', height: isToday ? '32px' : 'auto',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto', borderRadius: isToday ? '50%' : '0',
+                background: isToday ? '#EFF6FF' : 'transparent',
+              }}>
+                {d.getDate()}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Appointments grid */}
+      <div style={{ display: 'inline-grid', gridTemplateColumns: 'repeat(7, minmax(110px, 1fr))', minHeight: '400px', minWidth: '100%' }}>
+        {days.map((d, i) => {
+          const dateStr = toDateKey(d);
+          const dayApts = byDay[dateStr] || [];
+
+          // Group by technician
+          const byTech: Record<string, Appointment[]> = {};
+          if (selectedTech) {
+            byTech[selectedTech] = dayApts.filter(a => a.technician_id === selectedTech);
+          } else {
+            dayApts.forEach(a => {
+              const tid = a.technician_id;
+              if (!byTech[tid]) byTech[tid] = [];
+              byTech[tid].push(a);
+            });
+          }
+
+          return (
+            <div key={i} style={{
+              borderLeft: i > 0 ? '1px solid #E5E7EB' : 'none',
+              borderRight: i === days.length - 1 ? '1px solid #E5E7EB' : 'none',
+              borderBottom: '1px solid #E5E7EB',
+              padding: '8px 6px',
+              background: dateStr === todayStr ? '#F0F7FF' : '#fff',
+              minHeight: '80px',
+            }}>
+              {Object.entries(byTech).length === 0 && (
+                <div style={{ color: '#D1D5DB', fontSize: '12px', textAlign: 'center', padding: '16px 0' }}>—</div>
+              )}
+              {Object.entries(byTech).map(([tid, apts]) => {
+                const tech = filteredTechs.find(t => t.id === tid);
+                const ti = technicians.findIndex(t => t.id === tid);
+                const color = COLORS[Math.max(0, ti) % COLORS.length];
+                return (
+                  <div key={tid} style={{ marginBottom: '6px' }}>
+                    {!selectedTech && (
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', marginBottom: '2px' }}>
+                        {tech?.name || tid}
+                      </div>
+                    )}
+                    {apts.map(a => (
+                      <div key={a.id} onClick={() => onViewDetail(a)} style={{
+                        background: color, borderRadius: '4px', padding: '4px 6px', marginBottom: '3px',
+                        cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+                      }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#fff' }}>
+                          {new Date(a.scheduled_start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.9)' }}>
+                          {a.service_type_name}
+                        </div>
+                        <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.7)' }}>
+                          {a.vehicle_make} {a.vehicle_model}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

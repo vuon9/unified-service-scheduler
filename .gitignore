@@ -1,0 +1,28 @@
+# Binaries
+/server
+*.exe
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Frontend
+web/node_modules/
+web/dist/
+
+# Docker volumes (not tracked)
+data/
+
+# Environment
+.env
+.env.local

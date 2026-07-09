@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: .
+      args:
+        - HTTP_PROXY=http://host.docker.internal:60001
+        - HTTPS_PROXY=http://host.docker.internal:60001
+    container_name: uss-backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - db_data:/data
+    environment:
+      - DB_PATH=/data/scheduler.db
+      - PORT=8080
+      - TZ=Asia/Ho_Chi_Minh
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./web
+      args:
+        - HTTP_PROXY=http://host.docker.internal:60001
+        - HTTPS_PROXY=http://host.docker.internal:60001
+    container_name: uss-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_PROXY_TARGET=http://uss-backend:8080
+    depends_on:
+      - backend
+    restart: unless-stopped
+    profiles:
+      - prod
+
+volumes:
+  db_data:
