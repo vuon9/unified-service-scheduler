@@ -1,0 +1,89 @@
+.app {
+  min-height: 100vh;
+  background: #F9FAFB;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.logo {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.newBookingBtn {
+  padding: 8px 20px;
+  background: #2563EB;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.newBookingBtn:hover {
+  background: #1D4ED8;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 32px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.tab {
+  padding: 6px 16px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6B7280;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.tab:hover {
+  background: #F3F4F6;
+  color: #374151;
+}
+
+.tabActive {
+  background: #EFF6FF;
+  color: #2563EB;
+}
+
+.main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 32px;
+}
+
+/* Sidebar layout for All page */
+.allLayout {
+  display: flex;
+  gap: 16px;
+  padding: 16px 32px 32px;
+  align-items: flex-start;
+}
+
+.mainContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
