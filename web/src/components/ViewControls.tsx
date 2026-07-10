@@ -43,7 +43,7 @@ export default function ViewControls({
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '8px 0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '8px 16px' }}>
       {/* View mode buttons */}
       <div style={{ display: 'flex', gap: '4px' }}>
         <button style={btn(mode === 'timeline', '#2563EB')} onClick={() => onModeChange('timeline')}>Timeline</button>
