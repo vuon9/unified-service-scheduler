@@ -51,21 +51,21 @@ export default function ViewControls({
         <button style={btn(mode === 'month', '#2563EB')} onClick={() => onModeChange('month')}>Month</button>
       </div>
 
-      <span style={{ color: '#D1D5DB' }}>|</span>
+      <span style={{ color: '#D1D5DB', fontSize: '13px' }}>|</span>
 
       {/* Date navigation */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <button style={arrowBtn} onClick={() => go(-1, 'week')}>{'<<'}</button>
-        <button style={arrowBtn} onClick={() => go(-1, mode)}>{'<'}</button>
-        <span style={{ fontSize: '14px', fontWeight: 600, minWidth: '140px', textAlign: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <button style={{...arrowBtn, fontSize: '13px', padding: '4px 8px'}} onClick={() => go(-1, 'week')}>{'<<'}</button>
+        <button style={{...arrowBtn, fontSize: '16px', padding: '4px 8px'}} onClick={() => go(-1, mode)}>{'<'}</button>
+        <span style={{ fontSize: '13px', fontWeight: 600, minWidth: '100px', textAlign: 'center', whiteSpace: 'nowrap' }}>
           {mode === 'month'
             ? currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-            : currentDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+            : currentDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
         </span>
-        <button style={arrowBtn} onClick={() => go(1, mode)}>{'>'}</button>
-        <button style={arrowBtn} onClick={() => go(1, 'week')}>{'>>'}</button>
+        <button style={{...arrowBtn, fontSize: '16px', padding: '4px 8px'}} onClick={() => go(1, mode)}>{'>'}</button>
+        <button style={{...arrowBtn, fontSize: '13px', padding: '4px 8px'}} onClick={() => go(1, 'week')}>{'>>'}</button>
         <button
-          style={{ ...btn(false, '#2563EB'), fontSize: '12px' }}
+          style={{ ...btn(false, '#2563EB'), fontSize: '12px', padding: '4px 8px' }}
           onClick={() => onDateChange(new Date())}
         >
           Today

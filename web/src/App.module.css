@@ -7,13 +7,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 32px;
+  padding: 12px 16px;
   background: #FFFFFF;
   border-bottom: 1px solid #E5E7EB;
 }
 
 .logo {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   color: #111827;
   margin: 0;
@@ -21,39 +21,48 @@
 }
 
 .newBookingBtn {
-  padding: 8px 20px;
+  padding: 8px 16px;
   background: #2563EB;
   color: #FFFFFF;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
+  white-space: nowrap;
 }
 
 .newBookingBtn:hover {
   background: #1D4ED8;
 }
 
+.tabBar {
+  display: flex;
+  gap: 4px;
+  padding: 8px 16px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E5E7EB;
+  align-items: center;
+}
+
 .tabs {
   display: flex;
   gap: 4px;
-  padding: 12px 32px;
-  background: #FFFFFF;
-  border-bottom: 1px solid #E5E7EB;
+  flex: 1;
 }
 
 .tab {
-  padding: 6px 16px;
+  padding: 6px 12px;
   background: none;
   border: none;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: #6B7280;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
 }
 
 .tab:hover {
@@ -66,17 +75,34 @@
   color: #2563EB;
 }
 
+.filterToggle {
+  display: none;
+  padding: 6px 10px;
+  background: #F3F4F6;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filterToggle:hover {
+  background: #E5E7EB;
+}
+
 .main {
   max-width: 960px;
   margin: 0 auto;
-  padding: 24px 32px;
+  padding: 16px 16px;
 }
 
-/* Sidebar layout for All page */
+/* Sidebar layout */
 .allLayout {
   display: flex;
   gap: 16px;
-  padding: 16px 32px 32px;
+  padding: 8px 16px 24px;
   align-items: flex-start;
 }
 
@@ -85,5 +111,64 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+}
+
+/* Mobile: stack layout, collapse sidebar */
+@media (min-width: 769px) {
+  .header {
+    padding: 16px 32px;
+  }
+  .logo {
+    font-size: 22px;
+  }
+  .tabBar {
+    padding: 12px 32px;
+  }
+  .tab {
+    padding: 6px 16px;
+    font-size: 14px;
+  }
+  .allLayout {
+    padding: 16px 32px 32px;
+  }
+  /* Always show sidebar on desktop */
+  .sidebarWrapper {
+    display: block !important;
+  }
+}
+
+/* Mobile: stack layout, collapse sidebar */
+@media (max-width: 768px) {
+  .allLayout {
+    flex-direction: column;
+    padding: 8px 8px 16px;
+  }
+
+  .filterToggle {
+    display: inline-block;
+  }
+
+  .sidebarWrapperMobileHidden {
+    display: none;
+  }
+
+  .mainContent {
+    width: 100%;
+  }
+
+  .newBookingBtn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}
+
+.sidebarWrapper {
+  flex-shrink: 0;
+}
+
+@media (min-width: 769px) {
+  .sidebarWrapper {
+    display: block !important;
+  }
 }

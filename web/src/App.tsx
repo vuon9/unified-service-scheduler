@@ -31,6 +31,7 @@ export default function App() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedTech, setSelectedTech] = useState('');
   const [selectedBay, setSelectedBay] = useState('');
+  const [showSidebar, setShowSidebar] = useState(false);
 
   const addToast = useCallback((type: 'success' | 'error', message: string) => {
     const toast = createToast(type, message);
@@ -98,28 +99,35 @@ export default function App() {
         </button>
       </header>
 
-      <nav className={styles.tabs}>
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            className={`${styles.tab} ${activeTab === tab.key ? styles.tabActive : ''}`}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <nav className={styles.tabBar}>
+        <div className={styles.tabs}>
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              className={`${styles.tab} ${activeTab === tab.key ? styles.tabActive : ''}`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <button className={styles.filterToggle} onClick={() => setShowSidebar(!showSidebar)}>
+          {showSidebar ? 'Hide Filters' : 'Filters'}
+        </button>
       </nav>
 
       <div className={styles.allLayout}>
-        <Sidebar
-          technicians={technicians}
-          serviceBays={serviceBays}
-          appointments={appointments}
-          selectedTech={selectedTech}
-          selectedBay={selectedBay}
-          onSelectTech={(id) => { setSelectedTech(selectedTech === id ? '' : id); setSelectedBay(''); }}
-          onSelectBay={(id) => { setSelectedBay(selectedBay === id ? '' : id); setSelectedTech(''); }}
-        />
+        <div className={`${styles.sidebarWrapper} ${!showSidebar ? styles.sidebarWrapperMobileHidden : ''}`}>
+          <Sidebar
+            technicians={technicians}
+            serviceBays={serviceBays}
+            appointments={appointments}
+            selectedTech={selectedTech}
+            selectedBay={selectedBay}
+            onSelectTech={(id) => { setSelectedTech(selectedTech === id ? '' : id); setSelectedBay(''); }}
+            onSelectBay={(id) => { setSelectedBay(selectedBay === id ? '' : id); setSelectedTech(''); }}
+          />
+        </div>
         <div className={styles.mainContent}>
           {error ? (
             <div style={{ padding: '24px', textAlign: 'center' }}>
@@ -152,32 +160,38 @@ export default function App() {
                 onDateChange={setCurrentDate}
               />
               {viewMode === 'timeline' && (
-                <TimelineView
-                  appointments={appointments}
-                  technicians={selectedTech ? technicians.filter(t => t.id === selectedTech) : technicians}
-                  selectedTech={selectedTech}
-                  currentDate={currentDate}
-                  onViewDetail={handleViewDetail}
-                />
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <TimelineView
+                    appointments={appointments}
+                    technicians={selectedTech ? technicians.filter(t => t.id === selectedTech) : technicians}
+                    selectedTech={selectedTech}
+                    currentDate={currentDate}
+                    onViewDetail={handleViewDetail}
+                  />
+                </div>
               )}
               {viewMode === 'week' && (
-                <WeekView
-                  appointments={appointments}
-                  technicians={technicians}
-                  selectedTech={selectedTech}
-                  currentDate={currentDate}
-                  onViewDetail={handleViewDetail}
-                />
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <WeekView
+                    appointments={appointments}
+                    technicians={technicians}
+                    selectedTech={selectedTech}
+                    currentDate={currentDate}
+                    onViewDetail={handleViewDetail}
+                  />
+                </div>
               )}
               {viewMode === 'month' && (
-                <MonthView
-                  appointments={appointments}
-                  technicians={technicians}
-                  selectedTech={selectedTech}
-                  currentDate={currentDate}
-                  onViewDetail={handleViewDetail}
-                  onDateChange={setCurrentDate}
-                />
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <MonthView
+                    appointments={appointments}
+                    technicians={technicians}
+                    selectedTech={selectedTech}
+                    currentDate={currentDate}
+                    onViewDetail={handleViewDetail}
+                    onDateChange={setCurrentDate}
+                  />
+                </div>
               )}
             </>
           )}
