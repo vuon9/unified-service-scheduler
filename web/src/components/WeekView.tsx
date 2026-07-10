@@ -58,18 +58,18 @@ export default function WeekView({ appointments, technicians, selectedTech, curr
             <div key={i} style={{
               padding: '10px 8px', textAlign: 'center', borderLeft: i > 0 ? '1px solid #E5E7EB' : 'none',
             }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: isToday ? '#2563EB' : '#6B7280' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: isToday ? '#2563EB' : '#6B7280', marginBottom: '2px' }}>
                 {d.toLocaleDateString('en-US', { weekday: 'short' })}
               </div>
               <div style={{
-                fontSize: '20px', fontWeight: 700, color: isToday ? '#2563EB' : '#111827',
-                width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                margin: '2px auto', borderRadius: '50%', background: isToday ? '#EFF6FF' : 'transparent',
+                fontSize: isToday ? '18px' : '14px', fontWeight: 700,
+                color: isToday ? '#2563EB' : '#111827',
+                width: isToday ? '32px' : 'auto', height: isToday ? '32px' : 'auto',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto', borderRadius: isToday ? '50%' : '0',
+                background: isToday ? '#EFF6FF' : 'transparent',
               }}>
                 {d.getDate()}
-              </div>
-              <div style={{ fontSize: '11px', color: '#9CA3AF' }}>
-                {d.toLocaleDateString('en-US', { month: 'short' })}
               </div>
             </div>
           );
@@ -77,7 +77,7 @@ export default function WeekView({ appointments, technicians, selectedTech, curr
       </div>
 
       {/* Appointments grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', minHeight: '400px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(110px, 1fr))', minHeight: '400px' }}>
         {days.map((d, i) => {
           const dateStr = d.toISOString().split('T')[0];
           const dayApts = byDay[dateStr] || [];
