@@ -72,7 +72,7 @@ export interface CreateAppointmentRequest {
   scheduled_start: string;
 }
 
-export type TabFilter = 'all' | 'confirmed' | 'cancelled';
+export type TabFilter = 'confirmed' | 'cancelled';
 
 export type ViewMode = 'timeline' | 'week' | 'month';
 

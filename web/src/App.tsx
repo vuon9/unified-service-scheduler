@@ -12,7 +12,6 @@ import ToastContainer, { createToast } from './components/Toast';
 import styles from './App.module.css';
 
 const TABS: { key: TabFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
   { key: 'confirmed', label: 'Confirmed' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
@@ -21,7 +20,7 @@ export default function App() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [serviceBays, setServiceBays] = useState<ServiceBay[]>([]);
-  const [activeTab, setActiveTab] = useState<TabFilter>('all');
+  const [activeTab, setActiveTab] = useState<TabFilter>('confirmed');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showBooking, setShowBooking] = useState(false);
@@ -137,40 +136,46 @@ export default function App() {
               </button>
             ))}
           </div>
-          <button
-            onClick={handleFabClick}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: '32px', height: '32px', border: 'none', borderRadius: '6px',
-              background: showSidebar ? '#E5E7EB' : 'transparent',
-              color: showSidebar ? '#374151' : '#6B7280',
-              cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s',
-            }}
-            aria-label="Toggle filters"
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 4h16v2L14 12v6l-4 2v-8L4 6V4z"/>
-            </svg>
-          </button>
+          {activeTab === 'confirmed' && (
+            <button
+              onClick={handleFabClick}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '32px', height: '32px', border: 'none', borderRadius: '6px',
+                background: showSidebar ? '#E5E7EB' : 'transparent',
+                color: showSidebar ? '#374151' : '#6B7280',
+                cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s',
+              }}
+              aria-label="Toggle filters"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 4h16v2L14 12v6l-4 2v-8L4 6V4z"/>
+              </svg>
+            </button>
+          )}
         </nav>
 
-        <ViewControls
-          mode={viewMode}
-          onModeChange={setViewMode}
-          currentDate={currentDate}
-          onDateChange={setCurrentDate}
-        />
+        {activeTab === 'confirmed' && (
+          <ViewControls
+            mode={viewMode}
+            onModeChange={setViewMode}
+            currentDate={currentDate}
+            onDateChange={setCurrentDate}
+          />
+        )}
       </div>
 
       {/* Main content */}
       <div className={styles.allLayout}>
-        {/* Desktop sidebar — always visible */}
-        <div className={styles.sidebarWrapper}>
-          {sidebarContent(false)}
-        </div>
+        {/* Desktop sidebar — always visible on confirmed tab */}
+        {activeTab === 'confirmed' && (
+          <div className={styles.sidebarWrapper}>
+            {sidebarContent(false)}
+          </div>
+        )}
 
-        {/* Mobile sidebar — shown inline when toggled */}
-        {showSidebar && (
+        {/* Mobile sidebar — shown inline when toggled, only on confirmed tab */}
+        {activeTab === 'confirmed' && showSidebar && (
           <div className={styles.mobileSidebar}>
             {hasFilters && (
               <button
@@ -213,7 +218,7 @@ export default function App() {
               }} />
               <p style={{ color: '#6B7280', fontSize: '14px' }}>Loading appointments...</p>
             </div>
-          ) : (
+          ) : activeTab === 'confirmed' ? (
             <>
               {viewMode === 'timeline' && (
                 <TimelineView
@@ -248,6 +253,52 @@ export default function App() {
                 </div>
               )}
             </>
+          ) : (
+            /* Cancelled tab — simple list */
+            <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
+              {appointments.filter(a => a.status === 'cancelled').length === 0 ? (
+                <div style={{ padding: '40px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#6B7280' }}>No cancelled appointments</div>
+                </div>
+              ) : (
+                appointments.filter(a => a.status === 'cancelled').map((a, i, arr) => {
+                  const start = new Date(a.scheduled_start);
+                  const end = new Date(a.scheduled_end);
+                  return (
+                    <div
+                      key={a.id}
+                      onClick={() => handleViewDetail(a)}
+                      style={{
+                        display: 'flex', gap: '12px', padding: '12px 16px',
+                        borderBottom: i < arr.length - 1 ? '1px solid #F3F4F6' : 'none',
+                        cursor: 'pointer', opacity: 0.7,
+                      }}
+                    >
+                      <div style={{ width: '70px', flexShrink: 0, textAlign: 'right' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#6B7280' }}>
+                          {start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                          {start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                      <div style={{ width: '4px', flexShrink: 0, borderRadius: '2px', background: '#D1D5DB' }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#6B7280', textDecoration: 'line-through' }}>
+                          {a.service_type_name}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
+                          {a.vehicle_make} {a.vehicle_model}
+                        </div>
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#DC2626', background: '#FEE2E2', padding: '1px 6px', borderRadius: '4px', display: 'inline-block', marginTop: '4px' }}>
+                          CANCELLED
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           )}
         </div>
       </div>
