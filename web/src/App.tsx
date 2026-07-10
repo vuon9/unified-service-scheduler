@@ -137,6 +137,21 @@ export default function App() {
               </button>
             ))}
           </div>
+          <button
+            onClick={handleFabClick}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '32px', height: '32px', border: 'none', borderRadius: '6px',
+              background: showSidebar ? '#E5E7EB' : 'transparent',
+              color: showSidebar ? '#374151' : '#6B7280',
+              cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s',
+            }}
+            aria-label="Toggle filters"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 4h16v2L14 12v6l-4 2v-8L4 6V4z"/>
+            </svg>
+          </button>
         </nav>
 
         <ViewControls
@@ -216,17 +231,6 @@ export default function App() {
           )}
         </div>
       </div>
-
-      {/* Floating filter button (mobile only) */}
-      <button
-        className={`${styles.fab} ${showSidebar ? styles.fabActive : ''}`}
-        onClick={handleFabClick}
-        aria-label="Open filters"
-      >
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4 4h16v2L14 12v6l-4 2v-8L4 6V4z"/>
-        </svg>
-      </button>
 
       {/* Mobile sidebar overlay */}
       {showSidebar && (
