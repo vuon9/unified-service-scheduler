@@ -10,6 +10,7 @@ export interface Appointment {
   scheduled_end: string;
   status: 'confirmed' | 'cancelled' | 'completed';
   created_at: string;
+  notes?: string;
   // Joined fields from backend
   customer_name?: string;
   vehicle_make?: string;
@@ -70,6 +71,7 @@ export interface CreateAppointmentRequest {
   dealership_id: string;
   service_type_id: string;
   scheduled_start: string;
+  notes?: string;
 }
 
 export type TabFilter = 'confirmed' | 'cancelled';

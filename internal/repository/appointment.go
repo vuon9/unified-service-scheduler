@@ -102,13 +102,13 @@ func (r *Repository) InsertAppointment(ctx context.Context, tx DBTX, apt *model.
 
 	query := `INSERT INTO appointments (
 		id, customer_id, vehicle_id, dealership_id, service_type_id,
-		technician_id, service_bay_id, scheduled_start, scheduled_end, status, created_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		technician_id, service_bay_id, scheduled_start, scheduled_end, status, created_at, notes
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := tx.ExecContext(ctx, query,
 		apt.ID, apt.CustomerID, apt.VehicleID, apt.DealershipID, apt.ServiceTypeID,
 		apt.TechnicianID, apt.ServiceBayID, apt.ScheduledStart, apt.ScheduledEnd,
-		apt.Status, apt.CreatedAt,
+		apt.Status, apt.CreatedAt, apt.Notes,
 	)
 	if err != nil {
 		return fmt.Errorf("InsertAppointment: %w", err)

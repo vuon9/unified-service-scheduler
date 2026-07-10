@@ -186,6 +186,7 @@ func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*
 		ServiceBayID:   availableBays[0].ID,
 		ScheduledStart: req.ScheduledStart,
 		ScheduledEnd:   scheduledEnd,
+		Notes:          req.Notes,
 	}
 
 	if err := s.repo.InsertAppointment(ctx, tx, apt); err != nil {

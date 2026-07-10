@@ -16,6 +16,7 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
   const [selectedVehicle, setSelectedVehicle] = useState('');
   const [selectedService, setSelectedService] = useState('');
   const [datetime, setDatetime] = useState('');
+  const [notes, setNotes] = useState('');
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
   const [checkingAvail, setCheckingAvail] = useState(false);
   const [checkTouched, setCheckTouched] = useState(false);
@@ -85,6 +86,7 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
         dealership_id: DEFAULT_DEALERSHIP_ID,
         service_type_id: selectedService,
         scheduled_start: scheduledStart,
+        notes: notes || undefined,
       });
       onBooked();
     } catch (err: unknown) {
@@ -157,6 +159,18 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
                 <span className={styles.hint}>({selectedServiceType.duration_minutes} min)</span>
               )}
             </div>
+          </div>
+
+          {/* Notes */}
+          <div className={styles.field}>
+            <label className={styles.label}>Notes</label>
+            <textarea
+              className={styles.textarea}
+              placeholder="Optional — e.g. customer preferences, special requests..."
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
           </div>
 
           {/* Availability alert */}

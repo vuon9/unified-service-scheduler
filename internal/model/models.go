@@ -68,6 +68,7 @@ type Appointment struct {
 	ScheduledStart time.Time `json:"scheduled_start" db:"scheduled_start"`
 	ScheduledEnd   time.Time `json:"scheduled_end" db:"scheduled_end"`
 	Status         string    `json:"status" db:"status"`
+	Notes          string    `json:"notes" db:"notes"`
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 }
 
@@ -79,6 +80,7 @@ type BookAppointmentRequest struct {
 	VehicleID      string    `json:"vehicle_id"`
 	DealershipID   string    `json:"dealership_id"`
 	ServiceTypeID  string    `json:"service_type_id"`
+	Notes          string    `json:"notes"`
 	ScheduledStart time.Time `json:"scheduled_start"`
 }
 
