@@ -25,6 +25,9 @@ func New(repo *repository.Repository) *Service {
 // Book attempts to book an appointment, checking real-time availability
 // and performing the insert atomically within a transaction.
 func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*model.Appointment, error) {
+	// Normalize to UTC so SQLite string comparison works correctly
+	req.ScheduledStart = req.ScheduledStart.UTC()
+
 	// 0. Check past start time (cheapest validation first, no DB needed)
 	if req.ScheduledStart.Before(time.Now()) {
 		return nil, &ValidationError{
@@ -104,8 +107,10 @@ func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*
 		}
 	}
 
-	// 5. Begin transaction for atomic check + insert
-	tx, err := s.repo.DB.BeginTxx(ctx, nil)
+	// 5. Begin transaction for atomic check + insert (IMMEDIATE to prevent concurrent race)
+	tx, err := s.repo.DB.BeginTxx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelSerializable,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}

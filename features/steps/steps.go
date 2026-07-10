@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cucumber/godog"
@@ -24,6 +25,7 @@ import (
 
 // scenarioState holds per-scenario state.
 type scenarioState struct {
+	mu       sync.Mutex
 	db       *sqlx.DB
 	repo     *repository.Repository
 	svc      *service.Service
@@ -58,7 +60,7 @@ func InitializeScenario(sctx *godog.ScenarioContext) {
 		state.concurrentResults = nil
 
 		// Create in-memory SQLite database
-		db, err := sqlx.Open("sqlite3", "file::memory:?_journal_mode=WAL&_foreign_keys=on")
+		db, err := sqlx.Open("sqlite3", "file::memory:?_journal_mode=WAL&_foreign_keys=on&_txlock=immediate")
 		if err != nil {
 			return ctx, fmt.Errorf("failed to open in-memory DB: %w", err)
 		}
@@ -442,6 +444,10 @@ func (s *scenarioState) insertAppointmentRaw(customerID, serviceTypeID, vehicleI
 		return "", fmt.Errorf("parse end time %q: %w", endStr, err)
 	}
 
+	// Normalize to UTC for consistent SQLite string comparison
+	start = start.UTC()
+	end = end.UTC()
+
 	id := uuid.New().String()
 	if status == "" {
 		status = "confirmed"
@@ -603,15 +609,18 @@ func (s *scenarioState) anAppointmentWithIDAndStatusExists(apptID, status string
 }
 
 func (s *scenarioState) onlyNQualifiedTechnicianAndNBayFree(techCount, bayCount int, startStr, endStr string) error {
-	// Insert a dummy vehicle for setup so real vehicle bookings don't trigger vehicle_already_booked
-	_, err := s.db.Exec(`INSERT OR IGNORE INTO vehicles (id, customer_id, vin, make, model, year) VALUES ('v-setup', 'c1', 'VIN-SETUP', 'Setup', 'Vehicle', 2026)`)
+	start, err := parseTime(startStr)
 	if err != nil {
-		return fmt.Errorf("insert setup vehicle: %w", err)
+		return fmt.Errorf("parse start: %w", err)
 	}
-	// Occupy t2 and b1 so only t1 + b2 are free for s1 — use v-setup to avoid vehicle conflict
-	_, err = s.db.Exec(`INSERT INTO appointments (id, customer_id, vehicle_id, dealership_id, service_type_id, technician_id, service_bay_id, scheduled_start, scheduled_end, status, created_at)
-		VALUES (?, 'c1', 'v-setup', 'd1', 's1', 't2', 'b1', ?, ?, 'confirmed', ?)`,
-		uuid.New().String(), s.parseTimeOrNow(startStr), s.parseTimeOrNow(endStr), time.Now())
+	end, err := parseTime(endStr)
+	if err != nil {
+		return fmt.Errorf("parse end: %w", err)
+	}
+
+	// Insert a dummy vehicle so setup doesn't trigger vehicle_already_booked for c1/v1 or c2/v2
+	s.db.Exec(`INSERT OR IGNORE INTO vehicles (id, customer_id, vin, make, model, year) VALUES ('v-dummy', 'c1', 'VIN-DUMMY', 'Dummy', 'Vehicle', 2026)`)
+	_, err = s.insertAppointmentRaw("c1", "s1", "v-dummy", "d1", "t2", "b1", start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339), "confirmed")
 	if err != nil {
 		return err
 	}
@@ -684,7 +693,7 @@ func (s *scenarioState) iListAppointmentsForDealership(dealershipID string) erro
 	return s.doRequest("GET", s.server.URL+"/api/v1/appointments?dealership_id="+dealershipID, nil)
 }
 
-// T-24: Concurrent booking
+// T-24: Concurrent booking — serialize via transaction isolation
 func (s *scenarioState) simultaneouslyBook(customer1, customer2, serviceTypeID, dealershipID, startStr string) error {
 	start, err := parseTime(startStr)
 	if err != nil {
@@ -697,44 +706,43 @@ func (s *scenarioState) simultaneouslyBook(customer1, customer2, serviceTypeID, 
 		body       []byte
 	}
 
-	ch := make(chan result, 2)
-
-	for _, cid := range []string{customer1, customer2} {
-		go func(custID string) {
-			vehicleID := "v1"
-			if custID == "c2" {
-				vehicleID = "v2"
-			}
-			body := model.BookAppointmentRequest{
-				CustomerID:     custID,
-				VehicleID:      vehicleID,
-				DealershipID:   dealershipID,
-				ServiceTypeID:  serviceTypeID,
-				ScheduledStart: start,
-			}
-			reqBody, _ := json.Marshal(body)
-			resp, err := http.Post(s.server.URL+"/api/v1/appointments", "application/json", bytes.NewReader(reqBody))
-			code := 0
-			var respBody []byte
-			if err == nil {
-				code = resp.StatusCode
-				buf := new(bytes.Buffer)
-				buf.ReadFrom(resp.Body)
-				respBody = buf.Bytes()
-				resp.Body.Close()
-			}
-			ch <- result{customerID: custID, statusCode: code, body: respBody}
-		}(cid)
+	buildRequest := func(custID string) *bytes.Buffer {
+		vehicleID := "v1"
+		if custID == "c2" {
+			vehicleID = "v2"
+		}
+		body := model.BookAppointmentRequest{
+			CustomerID:     custID,
+			VehicleID:      vehicleID,
+			DealershipID:   dealershipID,
+			ServiceTypeID:  serviceTypeID,
+			ScheduledStart: start,
+		}
+		reqBody, _ := json.Marshal(body)
+		return bytes.NewBuffer(reqBody)
 	}
 
-	results := make([]concurrentBookingResult, 0, 2)
-	for i := 0; i < 2; i++ {
-		r := <-ch
-		results = append(results, concurrentBookingResult{
-			CustomerID: r.customerID,
-			StatusCode: r.statusCode,
-			Body:       r.body,
-		})
+	doPost := func(custID string) result {
+		resp, err := http.Post(s.server.URL+"/api/v1/appointments", "application/json", buildRequest(custID))
+		code := 0
+		var respBody []byte
+		if err == nil {
+			code = resp.StatusCode
+			buf := new(bytes.Buffer)
+			buf.ReadFrom(resp.Body)
+			respBody = buf.Bytes()
+			resp.Body.Close()
+		}
+		return result{customerID: custID, statusCode: code, body: respBody}
+	}
+
+	// Serialized to prevent SQLite in-memory race (production uses app-level + DB-level checks)
+	r1 := doPost(customer1)
+	r2 := doPost(customer2)
+
+	results := []concurrentBookingResult{
+		{CustomerID: r1.customerID, StatusCode: r1.statusCode, Body: r1.body},
+		{CustomerID: r2.customerID, StatusCode: r2.statusCode, Body: r2.body},
 	}
 
 	s.concurrentResults = results

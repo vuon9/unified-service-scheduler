@@ -29,8 +29,8 @@ func New(dbPath string, migrationsDir string) (*Repository, error) {
 		}
 	}
 
-	// Enable WAL mode and foreign keys via pragmas in the DSN
-	dsn := dbPath + "?_journal_mode=WAL&_foreign_keys=on"
+	// Enable WAL mode, foreign keys, and immediate transaction locking via pragmas in the DSN
+	dsn := dbPath + "?_journal_mode=WAL&_foreign_keys=on&_txlock=immediate"
 	db, err := sqlx.Open("sqlite3", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)

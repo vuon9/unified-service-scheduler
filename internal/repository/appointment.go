@@ -19,6 +19,10 @@ type ConflictResult struct {
 
 // FindConflicts returns the technician and bay IDs that are busy during the given time range.
 func (r *Repository) FindConflicts(ctx context.Context, tx DBTX, vehicleID string, techIDs, bayIDs []string, start, end time.Time) (*ConflictResult, error) {
+	// Normalize to UTC for consistent SQLite string comparison
+	start = start.UTC()
+	end = end.UTC()
+
 	result := &ConflictResult{
 		BusyTechnicianIDs: make(map[string]bool),
 		BusyBayIDs:        make(map[string]bool),
@@ -92,6 +96,9 @@ func (r *Repository) InsertAppointment(ctx context.Context, tx DBTX, apt *model.
 	apt.ID = uuid.New().String()
 	apt.Status = model.StatusConfirmed
 	apt.CreatedAt = time.Now()
+	// Normalize times to UTC so SQLite string comparison works consistently
+	apt.ScheduledStart = apt.ScheduledStart.UTC()
+	apt.ScheduledEnd = apt.ScheduledEnd.UTC()
 
 	query := `INSERT INTO appointments (
 		id, customer_id, vehicle_id, dealership_id, service_type_id,

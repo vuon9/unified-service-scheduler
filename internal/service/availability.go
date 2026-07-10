@@ -11,6 +11,9 @@ import (
 // CheckAvailability checks whether there are available technicians and service bays
 // for a given service type, dealership, and time slot.
 func (s *Service) CheckAvailability(ctx context.Context, req model.AvailabilityRequest) (*model.AvailabilityResponse, error) {
+	// Normalize to UTC so SQLite string comparison works correctly
+	req.ScheduledStart = req.ScheduledStart.UTC()
+
 	// Load service type for duration
 	svcType, err := s.repo.GetServiceType(ctx, s.repo.DB, req.ServiceTypeID)
 	if err != nil {

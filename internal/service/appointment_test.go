@@ -18,7 +18,7 @@ import (
 func setupTestService(t *testing.T) *Service {
 	t.Helper()
 
-	db, err := sqlx.Connect("sqlite3", ":memory:?_journal_mode=WAL&_foreign_keys=on")
+	db, err := sqlx.Connect("sqlite3", ":memory:?_journal_mode=WAL&_foreign_keys=on&_txlock=immediate")
 	require.NoError(t, err, "failed to open in-memory database")
 	t.Cleanup(func() { db.Close() })
 
