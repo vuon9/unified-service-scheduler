@@ -30,6 +30,8 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+    profiles:
+      - prod
 
 volumes:
   db_data:
