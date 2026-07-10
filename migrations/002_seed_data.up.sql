@@ -45,6 +45,14 @@ INSERT INTO technician_qualifications (technician_id, service_type_id) VALUES
 INSERT INTO technician_qualifications (technician_id, service_type_id) VALUES
 ('t3', 's2');
 
+-- Customer 3 (for 3-car demo)
+INSERT INTO customers (id, name, email, phone) VALUES
+('c3', 'Bao Minh', 'baominh@example.com', '0901122334');
+
+-- Vehicle 3
+INSERT INTO vehicles (id, customer_id, vin, make, model, year) VALUES
+('v3', 'c3', 'VIN-MAZDA-CX5-2024', 'Mazda', 'CX-5', 2024);
+
 -- Service Bays at d1
 INSERT INTO service_bays (id, dealership_id, name) VALUES
 ('b1', 'd1', 'Bay 1');
