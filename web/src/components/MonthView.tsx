@@ -50,7 +50,7 @@ export default function MonthView({ appointments, technicians, selectedTech, cur
   const todayStr = now.toISOString().split('T')[0];
 
   return (
-    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
+    <div style={{ display: 'inline-block', minWidth: '100%', background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
       {/* Day name headers */}
       <div style={{ display: 'inline-grid', gridTemplateColumns: 'repeat(7, minmax(100px, 1fr))', background: '#F9FAFB', borderBottom: '2px solid #E5E7EB', minWidth: '100%' }}>
         {DAY_NAMES.map((d, i) => (
