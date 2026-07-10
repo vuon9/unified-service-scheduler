@@ -44,23 +44,14 @@ export default function ViewControls({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', padding: '8px 16px', gap: '6px' }}>
-      {/* Row 1: mode buttons + Today (right) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{ display: 'flex', gap: '4px' }}>
-          <button style={btn(mode === 'timeline', '#2563EB')} onClick={() => onModeChange('timeline')}>Timeline</button>
-          <button style={btn(mode === 'week', '#2563EB')} onClick={() => onModeChange('week')}>Week</button>
-          <button style={btn(mode === 'month', '#2563EB')} onClick={() => onModeChange('month')}>Month</button>
-        </div>
-        <div style={{ flex: 1 }} />
-        <button
-          style={{ ...btn(false, '#2563EB'), fontSize: '12px', padding: '4px 12px' }}
-          onClick={() => onDateChange(new Date())}
-        >
-          Today
-        </button>
+      {/* Row 1: mode buttons */}
+      <div style={{ display: 'flex', gap: '4px' }}>
+        <button style={btn(mode === 'timeline', '#2563EB')} onClick={() => onModeChange('timeline')}>Timeline</button>
+        <button style={btn(mode === 'week', '#2563EB')} onClick={() => onModeChange('week')}>Week</button>
+        <button style={btn(mode === 'month', '#2563EB')} onClick={() => onModeChange('month')}>Month</button>
       </div>
 
-      {/* Row 2: date nav — only for Week/Month */}
+      {/* Row 2: date nav + Today — only for Week/Month */}
       {mode !== 'timeline' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <button style={{...arrowBtn, fontSize: '16px', padding: '4px 8px'}} onClick={() => go(-1, mode)}>{'<'}</button>
@@ -70,6 +61,12 @@ export default function ViewControls({
               : currentDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
           </span>
           <button style={{...arrowBtn, fontSize: '16px', padding: '4px 8px'}} onClick={() => go(1, mode)}>{'>'}</button>
+          <button
+            style={{ ...btn(false, '#2563EB'), fontSize: '12px', padding: '4px 8px' }}
+            onClick={() => onDateChange(new Date())}
+          >
+            Today
+          </button>
         </div>
       )}
     </div>
