@@ -71,7 +71,8 @@
 }
 
 .formRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
 
@@ -96,13 +97,18 @@
   padding: 10px 12px;
   border: 1px solid #D1D5DB;
   border-radius: 6px;
-  font-size: 16px; /* 16px to prevent iOS zoom on focus */
+  font-size: 16px;
   color: #111827;
   background: #FFFFFF;
   transition: border-color 0.2s;
   outline: none;
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
+}
+
+.select {
+  text-overflow: ellipsis;
 }
 
 .select:focus,
@@ -285,6 +291,7 @@
   }
 
   .formRow {
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
 
