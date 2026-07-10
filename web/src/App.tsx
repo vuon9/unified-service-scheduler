@@ -118,7 +118,13 @@ export default function App() {
       {/* Sticky: header + tabs + view controls */}
       <div style={{ position: 'sticky', top: 0, zIndex: 20, background: '#FFFFFF' }}>
         <header className={styles.header}>
-          <h1 className={styles.logo}>Keyloop Scheduler</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <svg viewBox="0 0 32 32" width="28" height="28" fill="none">
+              <rect width="32" height="32" rx="8" fill="#2563EB" />
+              <text x="16" y="22" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="700" fontFamily="Inter, sans-serif">K</text>
+            </svg>
+            <h1 className={styles.logo}>Keyloop Scheduler</h1>
+          </div>
           <button className={styles.newBookingBtn} onClick={() => setShowBooking(true)}>
             + New Booking
           </button>
