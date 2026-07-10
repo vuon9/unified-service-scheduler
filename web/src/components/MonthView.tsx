@@ -50,9 +50,9 @@ export default function MonthView({ appointments, technicians, selectedTech, cur
   const todayStr = now.toISOString().split('T')[0];
 
   return (
-    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
+    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
       {/* Day name headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: '#F9FAFB', borderBottom: '2px solid #E5E7EB' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(100px, 1fr))', background: '#F9FAFB', borderBottom: '2px solid #E5E7EB' }}>
         {DAY_NAMES.map(d => (
           <div key={d} style={{ padding: '10px 4px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: '#6B7280' }}>
             {d}
@@ -61,7 +61,7 @@ export default function MonthView({ appointments, technicians, selectedTech, cur
       </div>
 
       {/* Calendar grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', minHeight: '400px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(100px, 1fr))' }}>
         {cells.map((date, i) => {
           if (!date) {
             return <div key={`pad-${i}`} style={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', background: '#F9FAFB' }} />;

@@ -48,9 +48,9 @@ export default function WeekView({ appointments, technicians, selectedTech, curr
   const todayStr = now.toISOString().split('T')[0];
 
   return (
-    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
+    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
       {/* Day headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '2px solid #E5E7EB', background: '#F9FAFB' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(110px, 1fr))', borderBottom: '2px solid #E5E7EB', background: '#F9FAFB' }}>
         {days.map((d, i) => {
           const dateStr = d.toISOString().split('T')[0];
           const isToday = dateStr === todayStr;
