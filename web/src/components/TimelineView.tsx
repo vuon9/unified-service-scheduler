@@ -1,159 +1,181 @@
-import type { Appointment, Technician } from '../types';
+import type { Appointment } from '../types';
 import { useMemo } from 'react';
 
 interface Props {
   appointments: Appointment[];
-  technicians: Technician[];
+  technicians?: never; // kept for API compat
   selectedTech: string;
   currentDate: Date;
   onViewDetail: (apt: Appointment) => void;
 }
 
-const HOUR_HEIGHT = 60;
-const HOURS = Array.from({ length: 10 }, (_, i) => i + 8); // 8AM to 5PM
-
-function fmtTime(d: Date) {
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-}
-
 const COLORS = ['#2563EB', '#16A34A', '#9333EA', '#D97706', '#DC2626', '#0891B2'];
 
-export default function TimelineView({ appointments, technicians, selectedTech, currentDate, onViewDetail }: Props) {
-  const dayStart = useMemo(() => {
+function fmtTime(d: Date) {
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+function isSameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate();
+}
+
+function formatDayHeader(d: Date) {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (isSameDay(d, today)) return 'Today';
+  if (isSameDay(d, tomorrow)) return 'Tomorrow';
+  if (isSameDay(d, yesterday)) return 'Yesterday';
+
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatCompactDay(d: Date) {
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+export default function TimelineView({ appointments, selectedTech, currentDate, onViewDetail }: Props) {
+  // Build a multi-day range: currentDate ± 3 days = 7 days total
+  const rangeStart = useMemo(() => {
     const d = new Date(currentDate);
+    d.setDate(d.getDate() - 3);
     d.setHours(0, 0, 0, 0);
     return d;
   }, [currentDate]);
 
-  const dayEnd = useMemo(() => {
-    const d = new Date(dayStart);
-    d.setDate(d.getDate() + 1);
+  const rangeEnd = useMemo(() => {
+    const d = new Date(rangeStart);
+    d.setDate(d.getDate() + 7);
     return d;
-  }, [dayStart]);
+  }, [rangeStart]);
 
-  const filteredTechs = useMemo(() => {
-    let list = technicians;
-    if (selectedTech) list = list.filter(t => t.id === selectedTech);
-    return list;
-  }, [technicians, selectedTech]);
-
-  const dayAppts = useMemo(() => {
-    return appointments.filter(a => {
+  // Filter appointments in range + filter by selected tech
+  const filtered = useMemo(() => {
+    let list = appointments.filter(a => {
       if (a.status !== 'confirmed') return false;
       const s = new Date(a.scheduled_start);
-      return s >= dayStart && s < dayEnd;
+      return s >= rangeStart && s < rangeEnd;
     });
-  }, [appointments, dayStart, dayEnd]);
+    if (selectedTech) {
+      list = list.filter(a => a.technician_id === selectedTech);
+    }
+    // Sort by start time
+    list.sort((a, b) => new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime());
+    return list;
+  }, [appointments, rangeStart, rangeEnd, selectedTech]);
 
-  const dayStr = dayStart.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  const noAppts = dayAppts.length === 0;
+  // Group by date
+  const days = useMemo(() => {
+    const map = new Map<string, Appointment[]>();
+    for (const a of filtered) {
+      const key = new Date(a.scheduled_start).toDateString();
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(a);
+    }
+    return Array.from(map.entries());
+  }, [filtered]);
 
-  // Compute column width
-  const colW = 120;
+  if (filtered.length === 0) {
+    const dayStr = currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    return (
+      <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #E5E7EB', fontWeight: 600, fontSize: '15px', color: '#111827' }}>
+          {dayStr}
+          <span style={{ color: '#9CA3AF', fontWeight: 400, marginLeft: '8px', fontSize: '13px' }}>— no appointments</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB', overflow: 'auto' }}>
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid #E5E7EB', fontWeight: 600, fontSize: '15px', color: '#111827' }}>
-        {dayStr}
-        {noAppts && <span style={{ color: '#9CA3AF', fontWeight: 400, marginLeft: '8px', fontSize: '13px' }}>— no appointments</span>}
-      </div>
+    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
+      {days.map(([dateKey, appts]) => {
+        const firstDate = new Date(appts[0].scheduled_start);
+        return (
+          <div key={dateKey}>
+            {/* Sticky date header — sticks to top when scrolling */}
+            <div style={{
+              position: 'sticky', top: 0, zIndex: 10,
+              background: '#F9FAFB', borderBottom: '1px solid #E5E7EB',
+              padding: '10px 16px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <span style={{ fontWeight: 700, fontSize: '15px', color: '#111827' }}>
+                {formatDayHeader(firstDate)}
+              </span>
+              <span style={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 500 }}>
+                {appts.length} appointment{appts.length !== 1 ? 's' : ''}
+              </span>
+            </div>
 
-      {filteredTechs.length === 0 ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>No technicians available.</div>
-      ) : (
-        <div style={{ minWidth: filteredTechs.length > 0 ? `${HOURS.length * colW + 140}px` : '100%' }}>
-          {/* Header row: time labels */}
-          <div style={{ display: 'flex', borderBottom: '2px solid #E5E7EB', position: 'sticky', top: 0, background: '#F9FAFB' }}>
-            <div style={{ width: '130px', flexShrink: 0, padding: '8px 12px', fontSize: '12px', fontWeight: 600, color: '#6B7280' }}>Technician</div>
-            {HOURS.map(h => (
-              <div key={h} style={{ width: `${colW}px`, flexShrink: 0, padding: '8px 4px', fontSize: '12px', fontWeight: 600, color: '#6B7280', textAlign: 'center', borderLeft: '1px solid #E5E7EB' }}>
-                {h % 12 || 12}:00 {h < 12 ? 'AM' : 'PM'}
-              </div>
-            ))}
-          </div>
-
-          {/* Tech rows */}
-          {filteredTechs.map((tech, ti) => {
-            const techAppts = dayAppts.filter(a => a.technician_id === tech.id);
-            const color = COLORS[ti % COLORS.length];
-            return (
-              <div key={tech.id} style={{ display: 'flex', borderBottom: '1px solid #E5E7EB', minHeight: `${HOUR_HEIGHT}px` }}>
-                <div style={{
-                  width: '130px', flexShrink: 0, padding: '8px 12px', fontSize: '13px', fontWeight: 600,
-                  color: '#111827', display: 'flex', alignItems: 'center',
-                }}>
-                  {tech.name}
-                </div>
-                {HOURS.map((h, hi) => {
-                  const slotStart = new Date(dayStart);
-                  slotStart.setHours(h, 0, 0, 0);
-                  const slotEnd = new Date(slotStart);
-                  slotEnd.setHours(h + 1, 0, 0, 0);
-
-                  const cellAppts = techAppts.filter(a => {
-                    const as = new Date(a.scheduled_start);
-                    const ae = new Date(a.scheduled_end);
-                    return as < slotEnd && ae > slotStart;
-                  });
-
-                  return (
-                    <div key={hi} style={{
-                      width: `${colW}px`, flexShrink: 0, borderLeft: '1px solid #E5E7EB',
-                      position: 'relative', minHeight: `${HOUR_HEIGHT}px`,
-                      background: hi % 2 === 0 ? '#F9FAFB' : '#fff',
+            {/* Appointment cards */}
+            <div style={{ padding: '4px 12px' }}>
+              {appts.map((a, i) => {
+                const start = new Date(a.scheduled_start);
+                const end = new Date(a.scheduled_end);
+                const color = COLORS[i % COLORS.length];
+                return (
+                  <div
+                    key={a.id}
+                    onClick={() => onViewDetail(a)}
+                    style={{
+                      display: 'flex', gap: '12px', padding: '10px 0',
+                      borderBottom: i < appts.length - 1 ? '1px solid #F3F4F6' : 'none',
+                      cursor: 'pointer', transition: 'background 0.15s',
+                      borderRadius: '6px',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#F9FAFB')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    {/* Time column */}
+                    <div style={{
+                      width: '70px', flexShrink: 0, textAlign: 'right',
+                      paddingTop: '2px',
                     }}>
-                      {cellAppts.map(a => {
-                        const as = new Date(a.scheduled_start);
-                        const ae = new Date(a.scheduled_end);
-                        const durMin = (ae.getTime() - as.getTime()) / 60000;
-                        const offsetMin = Math.max(0, (as.getTime() - slotStart.getTime()) / 60000);
-                        const blockH = Math.max(28, (durMin / 60) * HOUR_HEIGHT);
-                        const blockT = Math.max(2, (offsetMin / 60) * HOUR_HEIGHT);
-                        return (
-                          <div
-                            key={a.id}
-                            onClick={() => onViewDetail(a)}
-                            style={{
-                              position: 'absolute', top: `${blockT}px`,
-                              left: '2px', right: '2px', height: `${blockH}px`,
-                              background: color, borderRadius: '6px', padding: '2px 6px',
-                              cursor: 'pointer', overflow: 'hidden', zIndex: 2,
-                              display: 'flex', flexDirection: 'column',
-                              justifyContent: 'center',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                            }}
-                          >
-                            <div style={{ fontWeight: 600, fontSize: '11px', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {a.service_type_name}
-                            </div>
-                            {durMin >= 90 && (
-                              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.85)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {a.vehicle_make} {a.vehicle_model}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827', lineHeight: 1.3 }}>
+                        {fmtTime(start)}
+                      </div>
+                      <div style={{ fontSize: '11px', fontWeight: 500, color: '#9CA3AF', lineHeight: 1.3 }}>
+                        {fmtTime(end)}
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
-      )}
 
-      {/* Legend */}
-      {!noAppts && (
-        <div style={{ padding: '8px 16px', borderTop: '1px solid #E5E7EB', display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '12px', color: '#6B7280' }}>
-          {filteredTechs.map((t, i) => (
-            <span key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: COLORS[i % COLORS.length], display: 'inline-block' }} />
-              {t.name}
-            </span>
-          ))}
-        </div>
-      )}
+                    {/* Color indicator */}
+                    <div style={{
+                      width: '4px', flexShrink: 0, borderRadius: '2px',
+                      background: color, alignSelf: 'stretch',
+                    }} />
+
+                    {/* Details */}
+                    <div style={{ flex: 1, minWidth: 0, paddingTop: '1px' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827', marginBottom: '2px' }}>
+                        {a.service_type_name}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6B7280', lineHeight: 1.5 }}>
+                        {a.vehicle_make} {a.vehicle_model}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6B7280', lineHeight: 1.5 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          🔧 {a.technician_name || a.technician_id}
+                        </span>
+                        <span style={{ margin: '0 6px', color: '#D1D5DB' }}>·</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          🅿️ {a.service_bay_name || a.service_bay_id}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

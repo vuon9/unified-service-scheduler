@@ -160,15 +160,13 @@ export default function App() {
                 onDateChange={setCurrentDate}
               />
               {viewMode === 'timeline' && (
-                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                  <TimelineView
-                    appointments={appointments}
-                    technicians={selectedTech ? technicians.filter(t => t.id === selectedTech) : technicians}
-                    selectedTech={selectedTech}
-                    currentDate={currentDate}
-                    onViewDetail={handleViewDetail}
-                  />
-                </div>
+                <TimelineView
+                  appointments={appointments}
+                  technicians={selectedTech ? technicians.filter(t => t.id === selectedTech) : technicians}
+                  selectedTech={selectedTech}
+                  currentDate={currentDate}
+                  onViewDetail={handleViewDetail}
+                />
               )}
               {viewMode === 'week' && (
                 <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
