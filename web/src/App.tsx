@@ -98,7 +98,7 @@ export default function App() {
   const hasFilters = selectedTech || selectedBay;
 
   const handleFabClick = () => {
-    setShowSidebar(true);
+    setShowSidebar(v => !v);
   };
 
   const sidebarContent = (fullWidth?: boolean) => (
