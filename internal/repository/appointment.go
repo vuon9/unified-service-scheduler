@@ -14,10 +14,11 @@ import (
 type ConflictResult struct {
 	BusyTechnicianIDs map[string]bool
 	BusyBayIDs        map[string]bool
+	VehicleBusy       bool
 }
 
 // FindConflicts returns the technician and bay IDs that are busy during the given time range.
-func (r *Repository) FindConflicts(ctx context.Context, tx DBTX, techIDs, bayIDs []string, start, end time.Time) (*ConflictResult, error) {
+func (r *Repository) FindConflicts(ctx context.Context, tx DBTX, vehicleID string, techIDs, bayIDs []string, start, end time.Time) (*ConflictResult, error) {
 	result := &ConflictResult{
 		BusyTechnicianIDs: make(map[string]bool),
 		BusyBayIDs:        make(map[string]bool),
@@ -69,6 +70,18 @@ func (r *Repository) FindConflicts(ctx context.Context, tx DBTX, techIDs, bayIDs
 		for _, id := range busyBays {
 			result.BusyBayIDs[id] = true
 		}
+	}
+
+	// Query for vehicle conflict — same vehicle can't have 2 confirmed appointments at the same time
+	if vehicleID != "" {
+		var count int
+		if err := tx.GetContext(ctx, &count, `SELECT COUNT(*) FROM appointments
+			WHERE status = 'confirmed'
+			AND vehicle_id = ?
+			AND scheduled_start < ? AND scheduled_end > ?`, vehicleID, end, start); err != nil {
+			return nil, fmt.Errorf("FindConflicts (vehicle): %w", err)
+		}
+		result.VehicleBusy = count > 0
 	}
 
 	return result, nil

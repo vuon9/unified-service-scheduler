@@ -92,6 +92,8 @@ func setupTestService(t *testing.T) *Service {
 		`INSERT INTO dealerships (id, name, address, opening_hours) VALUES ('d1', 'Saigon Auto', '123 Nguyen Hue', '{}')`,
 		`INSERT INTO customers (id, name, email, phone) VALUES ('c1', 'Anh Tuan', 'anhtuan@example.com', '0901234567')`,
 		`INSERT INTO vehicles (id, customer_id, vin, make, model, year) VALUES ('v1', 'c1', 'VIN-TOYOTA-CAMRY-2023', 'Toyota', 'Camry', 2023)`,
+		`INSERT INTO customers (id, name, email, phone) VALUES ('c2', 'Chi Lan', 'chilan@example.com', '0907654321')`,
+		`INSERT INTO vehicles (id, customer_id, vin, make, model, year) VALUES ('v2', 'c2', 'VIN-HONDA-CIVIC-2022', 'Honda', 'Civic', 2022)`,
 		`INSERT INTO service_types (id, name, duration_minutes, description) VALUES ('s1', 'Oil Change', 60, 'Full synthetic oil change')`,
 		`INSERT INTO service_types (id, name, duration_minutes, description) VALUES ('s2', 'Brake Replacement', 120, 'Front and rear brake pads')`,
 		`INSERT INTO technicians (id, dealership_id, name) VALUES ('t1', 'd1', 'Minh')`,
@@ -199,9 +201,10 @@ func TestBookAppointment_AllBaysOccupied(t *testing.T) {
 	require.NoError(t, err)
 
 	// Both bays (b1, b2) are now occupied, but t2 is free → should get ErrNoServiceBay
+	// Use c2 + v2 so vehicle conflict doesn't mask the bay check
 	_, err = svc.Book(ctx, model.BookAppointmentRequest{
-		CustomerID:     "c1",
-		VehicleID:      "v1",
+		CustomerID:     "c2",
+		VehicleID:      "v2",
 		DealershipID:   "d1",
 		ServiceTypeID:  "s1",
 		ScheduledStart: futureStart,
@@ -230,6 +233,7 @@ func TestBookAppointment_AllTechsOccupied(t *testing.T) {
 	require.NotNil(t, apt1)
 
 	// Manually insert a second appointment that occupies t2 with b1 (same time slot)
+	// Use v1 (same as first booking) — raw SQL bypasses vehicle conflict check
 	_, err = svc.repo.DB.Exec(`
 		INSERT INTO appointments (id, customer_id, vehicle_id, dealership_id, service_type_id,
 			technician_id, service_bay_id, scheduled_start, scheduled_end, status, created_at)
@@ -239,9 +243,10 @@ func TestBookAppointment_AllTechsOccupied(t *testing.T) {
 	require.NoError(t, err)
 
 	// Both techs (t1, t2) are now occupied, but b2 is free → should get ErrNoQualifiedTechnician
+	// Use c2 + v2 (different vehicle) so vehicle conflict doesn't mask the tech check
 	_, err = svc.Book(ctx, model.BookAppointmentRequest{
-		CustomerID:     "c1",
-		VehicleID:      "v1",
+		CustomerID:     "c2",
+		VehicleID:      "v2",
 		DealershipID:   "d1",
 		ServiceTypeID:  "s1",
 		ScheduledStart: futureStart,

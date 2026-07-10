@@ -41,8 +41,8 @@ func (s *Service) CheckAvailability(ctx context.Context, req model.AvailabilityR
 		bayIDs[i] = b.ID
 	}
 
-	// Find conflicts
-	conflicts, err := s.repo.FindConflicts(ctx, s.repo.DB, techIDs, bayIDs, req.ScheduledStart, scheduledEnd)
+	// Find conflicts (empty vehicleID since availability doesn't know the vehicle yet)
+	conflicts, err := s.repo.FindConflicts(ctx, s.repo.DB, "", techIDs, bayIDs, req.ScheduledStart, scheduledEnd)
 	if err != nil {
 		return nil, fmt.Errorf("conflict check failed: %w", err)
 	}

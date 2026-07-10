@@ -545,23 +545,24 @@ func (s *scenarioState) anAppointmentExistsUsingTechnician(customerID, serviceTy
 }
 
 func (s *scenarioState) serviceBayIsOccupied(bayID, startStr, endStr string) error {
-	// Use c1's vehicle v1 which exists. Get any tech for d1.
+	// Use c2/v2 for setup so vehicle conflict doesn't affect API bookings using v1
 	var techID string
 	err := s.db.QueryRow(`SELECT id FROM technicians WHERE dealership_id = 'd1' LIMIT 1`).Scan(&techID)
 	if err != nil {
 		return fmt.Errorf("no technician: %w", err)
 	}
-	_, err = s.insertAppointmentRaw("c1", "s1", "v1", "d1", techID, bayID, startStr, endStr, "confirmed")
+	_, err = s.insertAppointmentRaw("c2", "s1", "v2", "d1", techID, bayID, startStr, endStr, "confirmed")
 	return err
 }
 
 func (s *scenarioState) technicianIsOccupied(techID, startStr, endStr string) error {
+	// Use c2/v2 for setup so vehicle conflict doesn't affect API bookings using v1
 	var bayID string
 	err := s.db.QueryRow(`SELECT id FROM service_bays WHERE dealership_id = 'd1' LIMIT 1`).Scan(&bayID)
 	if err != nil {
 		return fmt.Errorf("no bay: %w", err)
 	}
-	_, err = s.insertAppointmentRaw("c1", "s1", "v1", "d1", techID, bayID, startStr, endStr, "confirmed")
+	_, err = s.insertAppointmentRaw("c2", "s1", "v2", "d1", techID, bayID, startStr, endStr, "confirmed")
 	return err
 }
 
@@ -602,9 +603,14 @@ func (s *scenarioState) anAppointmentWithIDAndStatusExists(apptID, status string
 }
 
 func (s *scenarioState) onlyNQualifiedTechnicianAndNBayFree(techCount, bayCount int, startStr, endStr string) error {
-	// Occupy t2 and b1 so only t1 + b2 are free for s1
-	_, err := s.db.Exec(`INSERT INTO appointments (id, customer_id, vehicle_id, dealership_id, service_type_id, technician_id, service_bay_id, scheduled_start, scheduled_end, status, created_at)
-		VALUES (?, 'c1', 'v1', 'd1', 's1', 't2', 'b1', ?, ?, 'confirmed', ?)`,
+	// Insert a dummy vehicle for setup so real vehicle bookings don't trigger vehicle_already_booked
+	_, err := s.db.Exec(`INSERT OR IGNORE INTO vehicles (id, customer_id, vin, make, model, year) VALUES ('v-setup', 'c1', 'VIN-SETUP', 'Setup', 'Vehicle', 2026)`)
+	if err != nil {
+		return fmt.Errorf("insert setup vehicle: %w", err)
+	}
+	// Occupy t2 and b1 so only t1 + b2 are free for s1 — use v-setup to avoid vehicle conflict
+	_, err = s.db.Exec(`INSERT INTO appointments (id, customer_id, vehicle_id, dealership_id, service_type_id, technician_id, service_bay_id, scheduled_start, scheduled_end, status, created_at)
+		VALUES (?, 'c1', 'v-setup', 'd1', 's1', 't2', 'b1', ?, ?, 'confirmed', ?)`,
 		uuid.New().String(), s.parseTimeOrNow(startStr), s.parseTimeOrNow(endStr), time.Now())
 	if err != nil {
 		return err

@@ -121,7 +121,7 @@ func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*
 		bayIDs[i] = b.ID
 	}
 
-	conflicts, err := s.repo.FindConflicts(ctx, tx, techIDs, bayIDs, req.ScheduledStart, scheduledEnd)
+	conflicts, err := s.repo.FindConflicts(ctx, tx, req.VehicleID, techIDs, bayIDs, req.ScheduledStart, scheduledEnd)
 	if err != nil {
 		return nil, fmt.Errorf("conflict check failed: %w", err)
 	}
@@ -137,6 +137,16 @@ func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*
 	for _, b := range bays {
 		if !conflicts.BusyBayIDs[b.ID] {
 			availableBays = append(availableBays, b)
+		}
+	}
+
+	if conflicts.VehicleBusy {
+		return nil, &AvailabilityError{
+			Reason:  "vehicle_already_booked",
+			Message: "This vehicle already has a confirmed appointment at the requested time",
+			Details: map[string]interface{}{
+				"vehicle_id": req.VehicleID,
+			},
 		}
 	}
 
