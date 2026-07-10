@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"expvar"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -36,6 +37,9 @@ func NewRouter(svc *service.Service, repo *repository.Repository) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok"}`))
 	})
+
+	// Debug metrics (expvar)
+	r.Handle("/debug/vars", expvar.Handler())
 
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {

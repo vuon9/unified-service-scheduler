@@ -2,7 +2,7 @@
 
 > Keyloop Senior Software Engineer -- Technical Coding Challenge
 > Author: Vuong Bui
-> Date: 2026-07-09
+> Date: 2026-07-10 (v2 -- reflects actual implementation)
 > Primary: Backend (Go) | Demo UI: React
 
 ---
@@ -46,12 +46,12 @@ docker compose up --build
 
 | Component | Role |
 |-----------|------|
-| **React UI** | Minimal demo frontend. Calls backend API for all operations. Not the primary deliverable -- focus is backend. |
-| **chi Router** | HTTP routing, middleware (logging, recovery, CORS). Go 1.22+ net/http compatible. |
+| **React UI** | Full calendar UI with Timeline/Week/Month views, responsive mobile layout, booking form with auto-check. |
+| **chi Router** | HTTP routing, middleware (logging, recovery, CORS, request ID). Also serves `/debug/vars` metrics. |
 | **Handler Layer** | Request parsing, validation, response formatting. Thin -- delegates to service. |
-| **Service Layer** | All business logic: availability check (overlap math), tech qualification matching, auto-assignment, cancellation. |
-| **Repository Layer** | Database access. Raw SQL with database/sql + sqlx. Transaction support for concurrent booking safety. |
-| **SQLite** | Single-file database. WAL mode for concurrent reads. Schema is Postgres-compatible for future migration. |
+| **Service Layer** | All business logic: conflict detection (vehicle + tech + bay), auto-assignment, cancellation. Exposes `expvar` metrics. |
+| **Repository Layer** | Database access. Raw SQL with `database/sql` + sqlx. Uses custom migration runner. |
+| **SQLite** | Single-file database. WAL mode + `_txlock=immediate` for write safety. Schema is Postgres-compatible. |
 
 ---
 
@@ -68,32 +68,44 @@ Handler: parse & validate request body
   |
   v
 Service.Book(req BookRequest):
-  1. Load vehicle -> verify customer ownership
-  2. Load service_type -> get duration, compute scheduled_end
-  3. Load qualified technicians for this service_type at this dealership
-  4. Load all service bays at this dealership
-  5. Query DB: find conflicting appointments for each candidate tech & bay
-     SELECT id FROM appointments
-     WHERE (technician_id = ? OR service_bay_id = ?)
-     AND status = 'confirmed'
-     AND scheduled_start < ? AND scheduled_end > ?
-  6. Filter out busy resources
-  7. If both lists non-empty: auto-pick first available tech + first available bay
-  8. BEGIN TRANSACTION
+  1. Normalize scheduled_start to UTC
+  2. Past-time check (reject if in the past)
+  3. Load vehicle -> verify customer ownership
+  4. Load service_type -> get duration, compute scheduled_end
+  5. Load qualified technicians for this service_type at this dealership
+  6. Load all service bays at this dealership
+  7. BEGIN TRANSACTION (immediate lock)
+       Query DB: find conflicting appointments for:
+         - Same vehicle       → vehicle_already_booked
+         - Same technician    → no_qualified_technician
+         - Same service bay   → no_service_bay_available
+       Conflict query uses strftime('%s', ...) for safe numeric comparison
+       Filter out busy resources
        INSERT appointment (status='confirmed', tech, bay, times)
      COMMIT
-  9. Return appointment
-  |-- no tech available --> 409 Conflict { reason: "no_qualified_technician" }
-  |-- no bay available  --> 409 Conflict { reason: "no_service_bay" }
+  8. Return appointment
+  |-- past time     --> 400 { reason: "past_start_time" }
+  |-- vehicle busy  --> 409 { reason: "vehicle_already_booked" }
+  |-- no tech       --> 409 { reason: "no_qualified_technician" }
+  |-- no bay        --> 409 { reason: "no_service_bay_available" }
 ```
+
+### Conflict Detection Algorithm
+
+All three resource types checked independently (OR logic):
+
+```sql
+-- Each uses strftime for safe timestamp comparison
+AND strftime('%s', scheduled_start) < strftime('%s', ?)  -- end
+AND strftime('%s', scheduled_end) > strftime('%s', ?)    -- start
+```
+
+This avoids false negatives from different datetime formats (e.g., `2026-07-20T01:00:00Z` vs `2026-07-20 01:00:00.000+00:00`).
 
 ### Cancel Appointment
 
 ```
 POST /api/v1/appointments/{id}/cancel
-  |
-  v
-Handler: parse id from URL
   |
   v
 Service.Cancel(id):
@@ -107,15 +119,12 @@ Service.Cancel(id):
 ### List Appointments
 
 ```
-GET /api/v1/appointments?customer_id=...&dealership_id=...&from=...&to=...
-  |
-  v
-Handler: parse query params
+GET /api/v1/appointments?customer_id=...&dealership_id=...&status=...&from=...&to=...
   |
   v
 Repository.List(filter):
-  SELECT with dynamic WHERE clauses
-  JOIN to include vehicle, tech, bay names
+  SELECT a.* with 5 JOINs for display names
+  WHERE dynamic filters (customer, dealership, status, date range)
   ORDER BY scheduled_start ASC
 ```
 
@@ -125,75 +134,36 @@ Repository.List(filter):
 
 | Layer | Technology | Justification |
 |-------|-----------|---------------|
-| Language | **Go 1.22+** | Fast, simple concurrency (goroutines), single binary deployment. Strong stdlib for HTTP + JSON. |
-| HTTP Router | **chi v5** | Idiomatic, stdlib-compatible Handler interface. Built-in middleware (logging, recover, CORS). |
-| Database | **SQLite 3 (mattn/go-sqlite3)** | Zero setup -- single file, no server process. Perfect for coding challenge demo. WAL mode for concurrent reads. |
-| SQL toolkit | **sqlx** | Extends database/sql with struct scanning, named params. Reduces boilerplate over raw database/sql. |
-| **Testing** | `godog` (Cucumber for Go) — Gherkin .feature files for API acceptance tests. |
-| Migrations | **golang-migrate** | Versioned SQL migrations. Embedded via Go embed for single-binary distribution. |
-| Frontend | **React + Vite** | Fast dev server. Minimal UI -- just enough to demo the API visually. No state management library needed. |
+| Language | **Go 1.22+** | Fast, simple concurrency. Single binary deployment. |
+| HTTP Router | **chi v5** | Idiomatic, stdlib-compatible, built-in middleware. |
+| Database | **SQLite 3 (mattn/go-sqlite3)** | Zero setup, single file. WAL mode + `_txlock=immediate`. |
+| SQL toolkit | **sqlx** | Struct scanning, reduces boilerplate. |
+| Testing | `godog` (Gherkin) + `testify` | 33 tests: 9 unit + 24 integration |
+| Migrations | **Custom runner** (`splitSQLStatements`) | Handles semicolons inside trigger bodies. Skips seed data (003) in test DB. |
+| Frontend | **React + Vite** | Full calendar UI with 3 views, responsive, auto-check form. |
 
 ### Why Go for this challenge?
 
-1. **Concurrency model**: availability check queries for techs and bays run in parallel (goroutines), good talking point for video
-2. **Single binary**: reviewer can `go build` and run -- no Docker, no DB setup beyond a file
-3. **Strong typing**: schema maps cleanly to structs, less runtime surprises
-4. **Testing culture**: table-driven tests are idiomatic and clear for the 24 scenarios
+1. **Concurrency model**: availability check queries run in transaction, safe for concurrent bookings
+2. **Single binary**: `go build && ./server` -- no Docker or DB setup
+3. **Strong typing**: schema maps cleanly to structs
+4. **Testing culture**: table-driven tests + godog acceptance tests
 
 ---
 
-## 3. Real-Time Availability Guarantee
-
-The requirement specifies a **real-time** availability check. We address this at two levels:
-
-### Level 1: Synchronous Check (What)
-
-Every booking request triggers an **immediate, synchronous** availability check against the current database state. The check is not cached, not queued, not batched. The response tells the caller right now whether the slot is available.
-
-### Level 2: Atomic Booking (How)
-
-The gap between "check" and "book" is a classic race condition window. Two customers could both see availability and both book the same slot. We close this with a **single database transaction**:
-
-```go
-func (s *Service) Book(ctx context.Context, req BookRequest) (*Appointment, error) {
-    tx, _ := s.db.BeginTx(ctx, nil)
-    defer tx.Rollback()
-
-    // 1. Find conflicting appointments (inside TX)
-    conflicts := s.repo.FindConflicts(ctx, tx, req)
-    if len(conflicts) > 0 {
-        return nil, ErrNoAvailability
-    }
-
-    // 2. Pick available tech + bay (inside TX)
-    tech := s.pickTech(qualified, conflicts)
-    bay  := s.pickBay(bays, conflicts)
-
-    // 3. INSERT (inside TX)
-    apt := s.repo.Insert(ctx, tx, ...)
-
-    tx.Commit() // Atomic: check + insert happen together
-    return apt, nil
-}
-```
-
-SQLite serializes all writes, so `COMMIT` is the atomicity boundary. If two requests arrive simultaneously, one transaction will commit first, and the second will see the first booking in its conflict query and return "unavailable".
-
-### What "Real-Time" Does NOT Mean (for MVP)
-
-- ❌ WebSocket/SSE push notifications for UI updates → out of scope (polling is sufficient for demo)
-- ❌ Sub-millisecond latency guarantees → standard HTTP response times (~10-50ms) are fine
-- ❌ Distributed locking (Redis, etcd) → SQLite's single-writer model is sufficient for MVP
+## 4. Real-Time Availability Guarantee
 
 | Guarantee | Implementation | Verified By |
 |-----------|---------------|-------------|
-| No double-booking | DB transaction (check + insert atomic) | T-24 (concurrent booking test) |
-| Immediate availability check | Synchronous query, no caching | All booking tests |
-| Resource isolation | Overlap query: `start_a < end_b AND end_a > start_b` | T-13 to T-15 (boundary tests) |
+| No double-booking (same vehicle) | `FindConflicts` checks vehicle_id overlap | Vehicle conflict tests |
+| No double-booking (same tech) | `FindConflicts` checks technician_id overlap | T-10, T-14 |
+| No double-booking (same bay) | `FindConflicts` checks service_bay_id overlap | T-08, T-15 |
+| Atomic check + insert | Single DB transaction (`BEGIN IMMEDIATE`) | T-24 (concurrent) |
+| Consistent time comparison | `strftime('%s', ...)` avoids datetime string comparison bugs | All tests |
 
 ---
 
-## 4. Data Model (SQL)
+## 5. Data Model (SQL)
 
 ```sql
 CREATE TABLE customers (
@@ -216,7 +186,7 @@ CREATE TABLE dealerships (
     id            TEXT PRIMARY KEY,
     name          TEXT NOT NULL,
     address       TEXT NOT NULL,
-    opening_hours TEXT  -- JSON, optional for MVP
+    opening_hours TEXT
 );
 
 CREATE TABLE service_types (
@@ -232,7 +202,6 @@ CREATE TABLE technicians (
     name          TEXT NOT NULL
 );
 
--- M:N relationship
 CREATE TABLE technician_qualifications (
     technician_id   TEXT NOT NULL REFERENCES technicians(id),
     service_type_id TEXT NOT NULL REFERENCES service_types(id),
@@ -257,10 +226,10 @@ CREATE TABLE appointments (
     scheduled_end   DATETIME NOT NULL,
     status          TEXT NOT NULL DEFAULT 'confirmed'
                     CHECK(status IN ('confirmed','cancelled','completed')),
+    notes           TEXT NOT NULL DEFAULT '',
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Critical for availability queries
 CREATE INDEX idx_appointments_technician_time
     ON appointments(technician_id, status, scheduled_start, scheduled_end);
 
@@ -270,11 +239,11 @@ CREATE INDEX idx_appointments_bay_time
 
 ---
 
-## 5. API Design
+## 6. API Design
 
 **Base URL:** `http://localhost:8080/api/v1`
 
-### 5.1 Book Appointment
+### 6.1 Book Appointment
 
 ```
 POST /appointments
@@ -285,7 +254,8 @@ Request:
   "vehicle_id":       "v1",
   "dealership_id":    "d1",
   "service_type_id":  "s1",
-  "scheduled_start":  "2026-07-15T09:00:00+07:00"
+  "scheduled_start":  "2026-07-15T09:00:00+07:00",
+  "notes":            "Please check tire pressure"    (optional)
 }
 
 Response 201:
@@ -297,24 +267,31 @@ Response 201:
   "service_type_id": "s1",
   "technician_id":   "t1",
   "service_bay_id":  "b1",
-  "scheduled_start": "2026-07-15T09:00:00+07:00",
-  "scheduled_end":   "2026-07-15T10:00:00+07:00",
+  "scheduled_start": "2026-07-15T02:00:00Z",
+  "scheduled_end":   "2026-07-15T03:00:00Z",
   "status":          "confirmed",
+  "notes":           "Please check tire pressure",
   "created_at":      "2026-07-09T12:00:00+07:00"
 }
 
 Response 409:
 {
-  "error":   "no_availability",
-  "message": "No resources available for the requested time slot",
-  "details": {
-    "available_technicians": false,
-    "available_bays":        true
-  }
+  "error":   "vehicle_already_booked",
+  "message": "This vehicle already has a confirmed appointment at the requested time"
 }
 ```
 
-### 5.2 Cancel Appointment
+**Error codes:**
+
+| Reason | HTTP Status | Meaning |
+|--------|:-----------:|---------|
+| `vehicle_already_booked` | 409 | Same vehicle already has a confirmed appointment at this time |
+| `no_qualified_technician` | 409 | All qualified technicians are busy |
+| `no_service_bay_available` | 409 | All service bays are occupied |
+| `past_start_time` | 400 | Scheduled start is in the past |
+| `already_cancelled` | 409 | Appointment is already in cancelled state |
+
+### 6.2 Cancel Appointment
 
 ```
 POST /appointments/{id}/cancel
@@ -325,23 +302,36 @@ Response 200:
   "status": "cancelled"
 }
 
-Response 404: { "error": "appointment not found" }
-Response 409: { "error": "appointment is already cancelled" }
+Response 404: { "error": "appointment_not_found", "message": "Appointment not found" }
+Response 409: { "error": "already_cancelled", "message": "Appointment is already cancelled" }
 ```
 
-### 5.3 List Appointments
+### 6.3 List Appointments
 
 ```
-GET /appointments?customer_id=c1&dealership_id=d1&from=2026-07-15&to=2026-07-16
+GET /appointments?customer_id=c1&dealership_id=d1&status=confirmed&from=2026-07-15&to=2026-07-16
 
 Response 200:
 {
-  "appointments": [...],
-  "count": 5
+  "appointments": [
+    {
+      "id": "apt-abc123",
+      "customer_id": "c1",
+      "vehicle_id": "v1",
+      ... (all appointment fields) ...
+      "customer_name": "Anh Tuan",
+      "vehicle_make": "Toyota",
+      "vehicle_model": "Camry",
+      "service_type_name": "Oil Change",
+      "technician_name": "Minh",
+      "service_bay_name": "Bay 1"
+    }
+  ],
+  "count": 1
 }
 ```
 
-### 5.4 Check Availability (optional, for UI)
+### 6.4 Check Availability
 
 ```
 POST /availability
@@ -361,112 +351,141 @@ Response 200:
 }
 ```
 
-### 5.5 Get Appointment
+### 6.5 Reference Data
 
 ```
-GET /appointments/{id}
+GET /vehicles       → [{ "id":"v1", "customer_id":"c1", "make":"Toyota", ... }]
+GET /service-types  → [{ "id":"s1", "name":"Oil Change", "duration_minutes":60, ... }]
+GET /technicians    → [{ "id":"t1", "dealership_id":"d1", "name":"Minh" }]
+GET /service-bays   → [{ "id":"b1", "dealership_id":"d1", "name":"Bay 1" }]
+```
 
-Response 200: (full appointment object with joined names)
+### 6.6 Debug & Metrics
+
+```
+GET /health       → { "status": "ok" }
+GET /debug/vars   → expvar JSON (bookings_total, bookings_conflicts, vehicle_conflicts, tech_conflicts, bay_conflicts, cancellations_total)
 ```
 
 ---
 
-## 6. Project Structure
+## 7. Project Structure
 
 ```
 keyloop-scheduler/
-|-- cmd/
-|   +-- server/
-|       +-- main.go              # entry point
-|-- internal/
-|   |-- handler/
-|   |   +-- appointment.go       # HTTP handlers
-|   |   +-- availability.go
-|   |   +-- middleware.go
-|   |-- service/
-|   |   +-- appointment.go       # business logic
-|   |   +-- availability.go      # overlap math, qualification check
-|   |-- repository/
-|   |   +-- appointment.go       # DB queries
-|   |   +-- dealership.go
-|   |   +-- technician.go
-|   |-- model/
-|   |   +-- models.go            # structs matching DB schema
-|-- migrations/
-|   +-- 001_initial_schema.up.sql
-|   +-- 001_initial_schema.down.sql
-|   +-- 002_seed_data.up.sql
-|-- features/                    # Cucumber Gherkin .feature files
-|   |-- appointments.feature
-|   |-- step_definitions_test.go # godog step implementations
-|-- web/                         # React frontend (demo only, tested manually)
-|   |-- src/
-|       |-- App.tsx
-|       |-- components/
-|-- README.md
-|-- Makefile
-|-- go.mod
+├── cmd/server/main.go              # Entry point
+├── internal/
+│   ├── handler/                    # HTTP handlers
+│   │   ├── appointment.go          # Appointment CRUD handlers
+│   │   ├── availability.go         # Availability + reference data
+│   │   ├── middleware.go           # Request ID middleware
+│   │   └── router.go              # Chi router + expvar mount
+│   ├── service/                    # Business logic
+│   │   ├── appointment.go          # Booking, cancellation, listing
+│   │   ├── availability.go         # Availability check (preview)
+│   │   └── metrics.go              # expvar counters
+│   ├── repository/                 # Database access layer
+│   │   ├── db.go                   # DB connection, migrations, DBTX
+│   │   ├── appointment.go          # Appointment CRUD + FindConflicts
+│   │   ├── dealership.go
+│   │   └── technician.go
+│   └── model/models.go             # Domain structs and DTOs
+├── migrations/                     # SQL migration files
+│   ├── 001_initial_schema.up.sql
+│   ├── 002_seed_data.up.sql
+│   ├── 003_seed_appointments.up.sql
+│   └── 004_notes_column.up.sql
+├── features/                       # Gherkin .feature files + steps
+│   ├── appointments.feature
+│   └── steps/steps.go
+├── web/                            # React frontend
+│   └── src/
+│       ├── components/             # BookingModal, Timeline/Week/Month views
+│       └── api.ts, types.ts
+├── DESIGN.md                       # This document
+├── FRONTEND_DESIGN.md              # Frontend design decisions
+├── README.md                       # Build/run instructions + AI narrative
+├── Makefile
+├── go.mod / go.sum
+├── Dockerfile / docker-compose.yml
 ```
 
 ---
 
-## 7. Observability Strategy
+## 8. Observability Strategy
 
 | Pillar | Implementation |
 |--------|---------------|
-| **Logging** | `slog` (Go 1.21+ structured logging). Request ID per call, log at handler ingress + service decisions. |
-| **Metrics** | `expvar` for basic counters (bookings_total, bookings_conflicts, cancellations_total). Easy to expose at `/debug/vars`. |
-| **Tracing** | Request ID propagated through context. Logged at each layer (handler -> service -> repo). Simple -- no external dependency. |
+| **Logging** | `slog` (Go 1.21+) structured logging. Request ID per call, logged at handler + service decisions. |
+| **Metrics** | `expvar` at `/debug/vars`: `bookings_total`, `bookings_conflicts`, `vehicle_conflicts`, `tech_conflicts`, `bay_conflicts`, `cancellations_total`. |
+| **Tracing** | Request ID propagated through context. Logged at each layer. |
 | **Error tracking** | Structured error types with codes. Every error logged with context. |
 
 ---
 
-## 8. Key Design Decisions
+## 9. Key Design Decisions
 
 | Decision | Rationale |
 |----------|-----------|
-| UUID strings as PKs (not auto-increment) | Avoids ID collision in distributed context. Human-readable for demo. |
-| Overlap query in SQL (not in-memory loop) | Single query handles all conflict detection. Index-backed. Scales better than loading all appointments into memory. |
-| Auto-pick first available (not smart scheduling) | MVP scope. Smart scheduling (best-fit, shortest wait) is post-MVP. |
-| Separate availability endpoint | Allows UI to show real-time availability before user commits to book. Decouples check from action. |
-| No authentication | Explicitly out of scope for MVP. Would add JWT middleware post-MVP. |
-| WAL mode for SQLite | Allows concurrent reads while a write transaction is open -- safer for availability checks during booking. |
+| UUID strings as PKs | Avoids ID collision. Human-readable for demo. |
+| Triple conflict check (vehicle + tech + bay) | Beyond original spec. Vehicle check required to prevent double-booking same car. |
+| strftime for time comparison | SQLite string comparison of different datetime formats (`Z` vs `+07:00` vs `2006-01-02 15:04:05`) gives false negatives. `strftime('%s')` normalizes to Unix timestamp. |
+| UTC normalization | All times normalized to `.UTC()` before storage. Seed data migration uses `Z` format. |
+| IMMEDIATE transaction lock | Prevents race conditions in concurrent booking (`_txlock=immediate` in DSN). |
+| Custom migration runner | Handles semicolons inside trigger bodies. Skips seed data in test DB. |
+| Separate availability endpoint | Allows UI to show real-time preview before user commits. |
+| Auto-pick first available | MVP scope. Smart scheduling is post-MVP. |
+| No authentication | Explicitly out of scope. |
+| WAL mode for SQLite | Concurrent reads during writes, safer for availability checks. |
 
 ---
 
-## 9. GenAI Collaboration Strategy
+## 10. Seed Data
 
-### How AI will be used in implementation
-
-| Phase | AI Role | My Role |
-|-------|---------|---------|
-| **Boilerplate** | Generate project skeleton, models, repository patterns | Review for correctness, adjust naming conventions |
-| **Availability logic** | Generate initial overlap query + filtering logic | Property-based test: random time slots, verify no false positives/negatives |
-| **API handlers** | Generate handler scaffolding from API spec | Review error handling, edge cases, status codes |
-| **Tests** | Generate test cases from TEST_SCENARIOS.md | Verify each test actually exercises the scenario, not just passes trivially |
-| **Seed data** | Generate INSERT statements | Verify consistency (tech qualifications match service types) |
-| **React UI** | Generate component structure + API calls | Verify UX flow, fix any visual issues |
-| **README** | Generate draft | Rewrite for clarity, add build/run instructions |
-
-### Verification strategy
-
-1. **Red-green-refactor**: AI writes test first, I review test makes sense, then AI implements
-2. **Property-based testing**: for availability overlap logic specifically -- generate random time ranges, verify symmetric overlap is always correct
-3. **Manual review gates**: every AI-generated commit goes through `git diff` review before merge
-4. **cURL smoke tests**: after each feature, manual API call to verify happy path
-
-### AI tools
-
-- **OpenCode** or **Claude Code** for code generation (agent-based, can read specs + write code)
-- **Code review via AI**: feed diff to LLM for consistency check before final review
+| Entity | Records | Details |
+|--------|:-------:|---------|
+| Customers | 3 | Anh Tuan (c1), Chi Lan (c2), Bao Minh (c3) |
+| Vehicles | 3 | Toyota Camry (v1, c1), Honda Civic (v2, c2), Mazda CX-5 (v3, c3) |
+| Service Types | 3 | Oil Change (60m), Brake Replacement (120m), Engine Diagnostic (90m) |
+| Technicians | 3 | Minh (t1: s1,s2), Hai (t2: s1,s3), Nam (t3: s2) |
+| Service Bays | 2 | Bay 1 (b1), Bay 2 (b2) |
+| Appointments | 16 | 10 confirmed Jul 20, 5 confirmed Jul 21, 1 cancelled Jul 22. All non-overlapping. |
 
 ---
 
-## 10. Risk & Mitigations
+## 11. Testing
+
+| Type | Count | Scope |
+|------|:-----:|-------|
+| **Unit tests** | 9 | Happy path, past time, past date, wrong customer, unowned vehicle, non-existent service type, all techs occupied, all bays occupied, concurrent booking |
+| **Integration (godog)** | 24 | Full HTTP cycle: book, cancel, list, filter, conflict scenarios, concurrent booking |
+| **Total** | **33** | All passing with `go test ./... -count=1` |
+
+### Test Scenarios (Gherkin)
+
+T-01 to T-06: Happy path booking, ownership validation, time validation
+T-07 to T-12: Resource conflicts (bay, tech, partial overlap)
+T-13 to T-18: Adjacent/edge-case times, boundary overlap
+T-19 to T-24: Listing, filtering, cancellation, concurrent booking
+
+---
+
+## 12. Risk & Mitigations
 
 | Risk | Mitigation |
 |------|------------|
-| Race condition on concurrent booking | Transaction with row-level locking. SQLite serializes writes anyway; wrap availability check + insert in single TX. |
-| Overlap logic edge cases | Property-based testing with random time ranges. Cross-check against known expected results. |
-| Timezone confusion | All times stored as ISO-8601 with offset. Input/output always includes timezone. |
-| SQLite concurrency limits | WAL mode. For MVP traffic (single user testing), no issue. Document Postgres migration path. |
+| Race condition on concurrent booking | `BEGIN IMMEDIATE` transaction. SQLite serializes writes with `SetMaxOpenConns(1)`. |
+| Datetime string comparison bug | `strftime('%s')` for numeric comparison. All times normalized to UTC in Go layer. |
+| Different datetime formats in seed vs API | All migration TIMEs use `Z` format. API normalizes inputs to UTC. |
+| Overlap logic edge cases | Property-based testing with boundary values. |
+| SQLite concurrency limits | WAL mode + `_txlock=immediate`. For single-user demo, no issue. |
+| Safari datetime input styling | Known issue: Safari renders datetime-local with native picker. Minor visual inconsistency, no functional impact. |
+
+---
+
+## 13. Known Issues (Post-MVP)
+
+- **Safari datetime-local styling**: The native calendar/time picker icons in Safari make the input look slightly different from `<select>` elements. Fix: custom date/time picker or CSS pseudo-element overrides.
+- **Smart scheduling**: Currently auto-picks first available tech + bay. Could optimize for shortest wait time or load balancing.
+- **Pagination**: `GET /appointments` returns all results. Add `LIMIT/OFFSET` for production.
+- **Authentication**: No auth middleware. Add JWT for multi-user support.

@@ -1,153 +1,127 @@
 # FRONTEND DESIGN -- Unified Service Scheduler
 
-> React + Vite demo UI. Minimal, clean, focused on the booking flow.
-> Date: 2026-07-09
+> React + Vite demo UI. Calendar-style views with full mobile responsiveness.
+> Date: 2026-07-10 (v2 -- reflects actual implementation)
 
 ---
 
 ## Design Goals
 
-- **Demo-first**: every screen is designed to look good in a 5-10 min video walkthrough
-- **API-driven**: all data comes from the Go backend (`localhost:8080/api/v1`)
-- **No router**: single-page with tab/step navigation (simpler, faster to build)
-- **No state management lib**: React hooks + fetch is enough for this scope
-- **Clean aesthetic**: light theme, card-based UI, clear CTAs
+- **Video-ready**: every screen designed to look good in a 5-10 min walkthrough
+- **API-driven**: all data from Go backend (`localhost:8080/api/v1`)
+- **No router**: single-page with tab + view-mode navigation
+- **No state management lib**: React hooks + fetch is sufficient
+- **Mobile-first responsive**: same app works on desktop and phone
 
 ---
 
-## Screen 1: Appointments Dashboard (Home)
+## Screen 1: Appointments Dashboard
 
 ```
-+--------------------------------------------------------------+
-|  Keyloop Scheduler                               [+ New Booking] |
-+--------------------------------------------------------------+
-|  [All] [Confirmed] [Cancelled]                   [Filter: v]  |
-+--------------------------------------------------------------+
-|                                                                |
-|  +----------------------------------------------------------+ |
-|  | 2026-07-15 | 09:00 - 10:00 | Oil Change           | ... | |
-|  | Toyota Camry | Bay 1 | Minh (Tech) | CONFIRMED     |     | |
-|  +----------------------------------------------------------+ |
-|  +----------------------------------------------------------+ |
-|  | 2026-07-15 | 11:00 - 13:00 | Brake Replacement    | ... | |
-|  | Toyota Camry | Bay 2 | Nam (Tech) | CONFIRMED     |     | |
-|  +----------------------------------------------------------+ |
-|  +----------------------------------------------------------+ |
-|  | 2026-07-14 | 14:00 - 15:00 | Engine Diagnostic    | ... | |
-|  | Honda Civic  | Bay 1 | Hai (Tech) | CANCELLED     |     | |
-|  +----------------------------------------------------------+ |
-|                                                                |
-+--------------------------------------------------------------+
+┌──────────────────────────────────────────────────────┐
+│ [K] Keyloop Scheduler                    [+ New]      │  ← sticky header
+├──────────────────────────────────────────────────────┤
+│ [Confirmed] [Cancelled]                   [🗘]        │  ← tab bar + filter toggle
+├──────────────────────────────────────────────────────┤
+│ [Timeline] [Week] [Month]                  [Today]    │  ← ViewControls row
+│         <  Mon, Jul 20, 2026  >                       │  ← date nav (hidden in Timeline)
+├──────────────────────────────────────────────────────┤
+│ ┌──────────────┬────────────────────────────────────┐ │
+│ │ Sidebar      │  │ 08:00 ────────┐                 │ │
+│ │ ──────────── │  │     Oil Change │ Toyota Camry  │ │
+│ │ ✓ Technicians│  │     Minh @ Bay1│               │ │
+│ │ ✓ Minh       │  ├───────────────┘                 │ │
+│ │ ✓ Hai        │  │ 09:00 ───────────────┐          │ │
+│ │ ✓ Nam        │  │     Brake Repl.     │ Mazda CX-5│ │
+│ │              │  │     Nam @ Bay1      │           │ │
+│ │ ✓ Bays       │  ├────────────────────┘           │ │
+│ │ ✓ Bay 1      │                                     │
+│ │ ✓ Bay 2      │  (Timeline view — shown)            │
+│ └──────────────┴────────────────────────────────────┘ │
+├──────────────────────────────────────────────────────┤
+│  Week view: 7-column grid with horizontal scroll     │
+│  Month view: date-grid with appointment dots          │
+│                                                        │
+│  Mobile (<768px): full-width sidebar overlay via 🗘   │
+└──────────────────────────────────────────────────────┘
 ```
 
-**States:**
-- **Empty**: "No appointments yet. Book your first one!" + CTA button
-- **Loading**: shimmer/skeleton cards
-- **Error**: "Could not load appointments" + retry button
+### Views
+
+| View | Description |
+|------|-------------|
+| **Timeline** | Vertical card list with sticky day headers. Each card shows time range, service, vehicle, tech, bay. Horizontal layout on desktop. |
+| **Week** | 7-column grid (Mon-Sun). `minmax(110px, 1fr)` columns with horizontal scroll on mobile. |
+| **Month** | Calendar grid with day cells. Click a day to jump to that date in current view. |
+
+### States
+
+- **Empty**: "No appointments yet. Book your first one!" + CTA
+- **Loading**: Skeleton cards
+- **Error**: "Could not load appointments" + retry
 - **Filtered empty**: "No appointments match this filter"
 
 ---
 
-## Screen 2: Book New Appointment (Modal or Page)
+## Screen 2: Booking Modal
 
 ```
-+--------------------------------------------------------------+
-|  Book New Appointment                                    [X]  |
-+--------------------------------------------------------------+
-|                                                                |
-|  Step 1: Select Vehicle & Service                              |
-|  +----------------------------------------------------------+ |
-|  | Vehicle:         [v Toyota Camry 2023     | v]            | |
-|  | Service:         [v Oil Change (60 min)   | v]            | |
-|  +----------------------------------------------------------+ |
-|                                                                |
-|  Step 2: Pick Date & Time                                      |
-|  +----------------------------------------------------------+ |
-|  | Date:        [2026-07-15]                                 | |
-|  | Time:        [09:00]                                      | |
-|  +----------------------------------------------------------+ |
-|                                                                |
-|  Step 3: Check Availability                                    |
-|  +----------------------------------------------------------+ |
-|  |                                       [Check Availability] | |
-|  |                                                            | |
-|  |  Available: Yes!                                           | |
-|  |  Technician: Minh (any qualified tech)                     | |
-|  |  Bay:        Bay 1 or Bay 2                               | |
-|  +----------------------------------------------------------+ |
-|                                                                |
-|                        [Cancel]   [  Book Appointment  ]       |
-+--------------------------------------------------------------+
+Desktop:                              Mobile (slide-up bottom sheet):
+┌─────────────────────────────┐       ┌─────────────────────────┐
+│ Book Appointment        [X] │       │ Book Appointment    [X] │
+├─────────────────────────────┤       ├─────────────────────────┤
+│ Vehicle       Service       │       │ Vehicle                  │
+│ [Toyota ▼]  [Oil Chg ▼]   │       │ [Toyota Camry ▼]         │
+│                             │       │ Service                  │
+│ Date & Time     (60 min)   │       │ [Oil Change ▼]           │
+│ [2026-07-20 09:00     ]    │       │                         │
+│                             │       │ Date & Time              │
+│ ✓ Available! Minh · Bay 1  │       │ [2026-07-20 09:00 ] (60m)│
+│                             │       │                         │
+│ Notes (optional)           │       │ ✓ Available! Minh·Bay1  │
+│ ┌───────────────────────┐  │       │                         │
+│ │ Please check tires... │  │       │ Notes (optional)         │
+│ └───────────────────────┘  │       │ ┌─────────────────────┐ │
+│                             │       │ │ Please check tires..│ │
+│ [Cancel]  [Book Appt]     │       │ └─────────────────────┘ │
+└─────────────────────────────┘       │                         │
+                                      │ [Cancel] [Book Appt]    │
+                                      └─────────────────────────┘
 ```
 
-**Flow:**
-1. User selects vehicle + service type -> see computed duration
-2. User picks date + time
-3. User clicks "Check Availability" -> calls `POST /availability`
-4. Shows result inline (green check or red X)
-5. If available -> "Book Appointment" button enabled
-6. On success -> close modal, refresh list, show toast "Booked!"
+### Booking Flow
 
-**States:**
-- **Availability loading**: spinner on the button
-- **Available**: green banner with tech + bay info
-- **Unavailable (no bay)**: red banner "No service bays available at this time. Try another time."
-- **Unavailable (no tech)**: red banner "No qualified technician available. Try another time."
-- **Unavailable (both)**: red banner "No resources available."
-- **Server error**: red banner with error message
+1. Select Vehicle + Service (2-column grid)
+2. Pick Date & Time (single `datetime-local` input)
+3. **Auto-check**: 500ms debounce → API call → green/red alert appears inline
+4. Optional: add notes
+5. Click "Book Appointment" (disabled until available)
+6. On success: modal closes, list refreshes
+
+### Key UX Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Flat form (no steps) | Faster, fewer taps on mobile |
+| `datetime-local` input | Single field, native picker on mobile |
+| Auto-check availability | No extra button needed, instant feedback |
+| Notes below alert | Alert is primary feedback; notes are secondary |
+| Inline CTA buttons | Cancel + Book side by side with proportional width (1:2) |
+| Slide-up bottom sheet on mobile | Familiar pattern on iOS/Android |
 
 ---
 
-## Screen 3: Appointment Detail (Expanded Card or Modal)
+## Mobile Responsive Strategy
 
-```
-+--------------------------------------------------------------+
-|  Appointment Detail                                      [X]  |
-+--------------------------------------------------------------+
-|                                                                |
-|  +----------------------------------------------------------+ |
-|  | STATUS: CONFIRMED                                         | |
-|  |                                                            | |
-|  | Vehicle:      Toyota Camry 2023 (VIN: ...)                | |
-|  | Service:      Oil Change (60 min)                         | |
-|  | Date:         2026-07-15                                  | |
-|  | Time:         09:00 - 10:00                               | |
-|  | Dealer:       Saigon Auto                                 | |
-|  | Technician:   Minh                                        | |
-|  | Bay:          Bay 1                                       | |
-|  | Booked at:    2026-07-09 12:00                            | |
-|  +----------------------------------------------------------+ |
-|                                                                |
-|                   [  Cancel Appointment  ]                     |
-+--------------------------------------------------------------+
-```
-
-**Cancel flow:**
-1. Click "Cancel Appointment"
-2. Confirmation dialog: "Are you sure you want to cancel this appointment?"
-3. On confirm -> `POST /appointments/{id}/cancel`
-4. On success -> close detail, refresh list, toast "Cancelled"
-
----
-
-## Screen 4: Toast / Feedback System
-
-```
-+----------------------------+
-|  [check] Appointment booked! |
-+----------------------------+
-
-+----------------------------+
-|  [X] No technician available |
-|     Try another time slot.   |
-+----------------------------+
-
-+----------------------------+
-|  [check] Appointment cancelled |
-+----------------------------+
-```
-
-Position: top-right, auto-dismiss after 4 seconds.
+| Element | Desktop (>768px) | Mobile |
+|---------|:----------------:|:------:|
+| Layout | Sidebar + content | Full-width stacked |
+| Sidebar | Always visible, 220px | Hidden, toggle via filter icon 🗘 |
+| Form rows | 2-column grid | Single column full-width |
+| Booking modal | Centered dialog | Slide-up bottom sheet |
+| Timeline | Horizontal cards | Vertical card list |
+| Week/Month | 7-column grid | `minmax` forced horizontal scroll |
+| FAB filter | Hidden | 🔄 (replaced by tab-bar icon) |
 
 ---
 
@@ -155,87 +129,59 @@ Position: top-right, auto-dismiss after 4 seconds.
 
 ```
 App
-|-- Header ("Keyloop Scheduler" + [New Booking] button)
-|-- ToastContainer (top-right, stacked)
-|-- TabBar: [All] [Confirmed] [Cancelled]
-|-- AppointmentList
-|   |-- AppointmentCard (×N)
-|       |-- StatusBadge (Confirmed/Cancelled)
-|       |-- TimeInfo
-|       |-- ResourceInfo (tech + bay)
-|       |-- "View Details" link
-|-- BookingModal
-|   |-- VehicleSelect (dropdown, fetch from API)
-|   |-- ServiceSelect (dropdown, fetch from API)
-|   |-- DateTimePicker (date input + time input)
-|   |-- AvailabilityChecker
-|   |   |-- CheckButton
-|   |   |-- AvailabilityResult
-|-- DetailModal
-|   |-- AppointmentInfo (all fields)
-|   |-- CancelButton (with confirmation)
+├── Header (sticky)
+│   ├── Logo (K icon + "Keyloop Scheduler")
+│   └── New Booking button
+├── TabBar (sticky)
+│   ├── Confirmed tab
+│   ├── Cancelled tab
+│   └── Filter icon (mobile only)
+├── ViewControls (sticky)
+│   ├── Timeline / Week / Month buttons
+│   ├── Date navigation (< date >)
+│   └── Today button
+├── Main Content
+│   ├── Sidebar (desktop) / Overlay (mobile)
+│   │   ├── Technicians list (checkboxes)
+│   │   └── Bays list (checkboxes)
+│   └── Active View
+│       ├── TimelineView (vertical card list)
+│       ├── WeekView (7-column grid)
+│       └── MonthView (calendar grid)
+└── BookingModal
+    ├── Vehicle + Service selects
+    ├── Datetime-local input
+    ├── Auto-check alert
+    ├── Notes textarea
+    └── Cancel + Book buttons
 ```
 
 ---
 
-## API Calls
+## API Integration
 
-| Component | Endpoint | Method |
-|-----------|----------|--------|
-| App (on mount) | `/appointments` | GET |
-| VehicleSelect | `/vehicles` | GET (or seeded) |
-| ServiceSelect | `/service-types` | GET (or seeded) |
-| AvailabilityChecker | `/availability` | POST |
-| BookingModal (submit) | `/appointments` | POST |
-| DetailModal (cancel) | `/appointments/{id}/cancel` | POST |
+- **`fetchAppointments(params?)`** → populates current view
+- **`checkAvailability(data)`** → auto-check on form field change (500ms debounce)
+- **`createAppointment(data)`** → books and closes modal
+- **`cancelAppointment(id)`** → updates appointment status
+- **`fetchVehicles()`** + **`fetchServiceTypes()`** → populate dropdowns
 
----
-
-## Tech Choices
-
-| Choice | Why |
-|--------|-----|
-| **Vite** | Fastest React dev server. HMR out of the box. |
-| **No React Router** | Single-page app. Tabs + modals = simpler code, less to explain in video. |
-| **No UI library** | Plain CSS modules or Tailwind. Demonstrates we can build UI, not just wire up components. |
-| **fetch (native)** | No axios needed. Clean, simple, standard. |
-| **No state library** | useState + useEffect + custom hooks (useAppointments, useBooking) = enough. |
+All API calls go through `apiFetch<T>()` wrapper with error handling.
 
 ---
 
-## Color Palette (Clean / Professional)
+## Styling
 
-| Role | Color | Hex |
-|------|-------|-----|
-| Primary | Blue | `#2563EB` |
-| Success | Green | `#16A34A` |
-| Danger | Red | `#DC2626` |
-| Warning | Amber | `#D97706` |
-| Background | White/Gray | `#F9FAFB` |
-| Card | White | `#FFFFFF` |
-| Text | Dark Gray | `#111827` |
-| Text Secondary | Gray | `#6B7280` |
+- **CSS Modules**: Scoped styles per component (`*.module.css`)
+- **Light theme**: White + gray-50 background, blue-600 primary
+- **Font sizes**: 16px base (prevents iOS zoom on focus)
+- **Grid layout**: 2-column grid for form rows, single column on mobile
+- **Consistent heights**: All inputs 44px with `box-sizing: border-box`
+- **Duration hint**: Shows service duration below datetime input
 
 ---
 
-## Video Walkthrough Flow
+## Known Issues
 
-1. **Dashboard**: show list of appointments (pre-seeded with a few)
-2. **Book new**: walk through the form, check availability -> book
-3. **Show conflict**: try to book same time again -> see "no availability" error
-4. **Cancel**: go to detail, cancel an appointment
-5. **Verify**: list refreshes, cancelled shows with strikethrough/badge
-6. **AI narrative**: mention how AI generated the components from these wireframes
-
-Total video time: ~7 minutes for the demo portion.
-
----
-
-## What We DON'T Build (MVP)
-
-- Responsive mobile layout (desktop-first for video recording)
-- Authentication/login
-- Vehicle/service type CRUD (just consume from backend seed data)
-- Dark mode
-- Loading skeletons (simple spinner is fine)
-- Pagination (one page of appointments is enough)
+- **Safari datetime input**: Native picker icons cause slight visual mismatch vs `<select>` elements. Height is identical (44px) but internal spacing differs.
+- **No pagination**: All appointments loaded at once. Fine for demo (<100 records).

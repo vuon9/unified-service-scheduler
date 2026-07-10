@@ -144,6 +144,8 @@ func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*
 	}
 
 	if conflicts.VehicleBusy {
+		Metrics.VehicleConflicts.Add(1)
+		Metrics.BookingsConflict.Add(1)
 		return nil, &AvailabilityError{
 			Reason:  "vehicle_already_booked",
 			Message: "This vehicle already has a confirmed appointment at the requested time",
@@ -154,6 +156,8 @@ func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*
 	}
 
 	if len(availableTechs) == 0 {
+		Metrics.TechConflicts.Add(1)
+		Metrics.BookingsConflict.Add(1)
 		return nil, &AvailabilityError{
 			Reason:  model.ErrNoQualifiedTechnician,
 			Message: "No qualified technician available for the requested time slot",
@@ -164,6 +168,8 @@ func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*
 		}
 	}
 	if len(availableBays) == 0 {
+		Metrics.BayConflicts.Add(1)
+		Metrics.BookingsConflict.Add(1)
 		return nil, &AvailabilityError{
 			Reason:  model.ErrNoServiceBayAvailable,
 			Message: "No service bay available for the requested time slot",
@@ -204,6 +210,7 @@ func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*
 		"start", apt.ScheduledStart,
 		"end", apt.ScheduledEnd,
 	)
+	Metrics.BookingsTotal.Add(1)
 
 	return apt, nil
 }
@@ -229,6 +236,7 @@ func (s *Service) Cancel(ctx context.Context, id string) (*model.Appointment, er
 
 	apt.Status = model.StatusCancelled
 	slog.Info("appointment cancelled", "id", id)
+	Metrics.CancellationsTotal.Add(1)
 	return apt, nil
 }
 
