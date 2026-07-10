@@ -69,11 +69,6 @@ export default function App() {
     loadDataSources();
   }, [loadAppointments, loadDataSources]);
 
-  const filteredAppointments = appointments.filter((a) => {
-    if (activeTab === 'all') return true;
-    return a.status === activeTab;
-  });
-
   const handleBooked = () => {
     loadAppointments();
     setShowBooking(false);
@@ -90,8 +85,36 @@ export default function App() {
     setShowDetail(appointment);
   };
 
+  const toggleSidebar = () => setShowSidebar(v => !v);
+
+  const handleSelectTech = (id: string) => {
+    setSelectedTech(selectedTech === id ? '' : id);
+    setSelectedBay('');
+  };
+
+  const handleSelectBay = (id: string) => {
+    setSelectedBay(selectedBay === id ? '' : id);
+    setSelectedTech('');
+  };
+
+  const hasFilters = selectedTech || selectedBay;
+
+  const sidebarContent = (fullWidth?: boolean) => (
+    <Sidebar
+      technicians={technicians}
+      serviceBays={serviceBays}
+      appointments={appointments}
+      selectedTech={selectedTech}
+      selectedBay={selectedBay}
+      onSelectTech={handleSelectTech}
+      onSelectBay={handleSelectBay}
+      fullWidth={fullWidth}
+    />
+  );
+
   return (
     <div className={styles.app}>
+      {/* Sticky: header + tabs + view controls */}
       <div style={{ position: 'sticky', top: 0, zIndex: 20, background: '#FFFFFF' }}>
         <header className={styles.header}>
           <h1 className={styles.logo}>Keyloop Scheduler</h1>
@@ -112,24 +135,24 @@ export default function App() {
               </button>
             ))}
           </div>
-          <button className={styles.filterToggle} onClick={() => setShowSidebar(!showSidebar)}>
-            {showSidebar ? 'Hide Filters' : 'Filters'}
-          </button>
         </nav>
+
+        <ViewControls
+          mode={viewMode}
+          onModeChange={setViewMode}
+          currentDate={currentDate}
+          onDateChange={setCurrentDate}
+        />
       </div>
 
+      {/* Main content */}
       <div className={styles.allLayout}>
-        <div className={`${styles.sidebarWrapper} ${!showSidebar ? styles.sidebarWrapperMobileHidden : ''}`}>
-          <Sidebar
-            technicians={technicians}
-            serviceBays={serviceBays}
-            appointments={appointments}
-            selectedTech={selectedTech}
-            selectedBay={selectedBay}
-            onSelectTech={(id) => { setSelectedTech(selectedTech === id ? '' : id); setSelectedBay(''); }}
-            onSelectBay={(id) => { setSelectedBay(selectedBay === id ? '' : id); setSelectedTech(''); }}
-          />
+        {/* Desktop sidebar — always visible */}
+        <div className={styles.sidebarWrapper}>
+          {sidebarContent(false)}
         </div>
+
+        {/* Calendar / Timeline */}
         <div className={styles.mainContent}>
           {error ? (
             <div style={{ padding: '24px', textAlign: 'center' }}>
@@ -155,12 +178,6 @@ export default function App() {
             </div>
           ) : (
             <>
-              <ViewControls
-                mode={viewMode}
-                onModeChange={setViewMode}
-                currentDate={currentDate}
-                onDateChange={setCurrentDate}
-              />
               {viewMode === 'timeline' && (
                 <TimelineView
                   appointments={appointments}
@@ -197,6 +214,25 @@ export default function App() {
           )}
         </div>
       </div>
+
+      {/* Floating filter button (mobile only) */}
+      <button
+        className={`${styles.fab} ${showSidebar ? styles.fabActive : ''}`}
+        onClick={toggleSidebar}
+        aria-label={showSidebar ? 'Close filters' : 'Open filters'}
+      >
+        {hasFilters ? '✓' : '⚙'}
+      </button>
+
+      {/* Mobile sidebar overlay */}
+      {showSidebar && (
+        <div className={styles.overlay} onClick={() => setShowSidebar(false)}>
+          <div className={styles.overlayPanel} onClick={e => e.stopPropagation()}>
+            <div className={styles.overlayHandle} />
+            {sidebarContent(true)}
+          </div>
+        </div>
+      )}
 
       {showBooking && (
         <BookingModal onClose={() => setShowBooking(false)} onBooked={handleBooked} />

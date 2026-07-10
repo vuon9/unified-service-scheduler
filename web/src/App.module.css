@@ -1,6 +1,7 @@
 .app {
   min-height: 100vh;
   background: #F9FAFB;
+  padding-bottom: 80px; /* space for FAB */
 }
 
 .header {
@@ -43,13 +44,11 @@
   padding: 8px 16px;
   background: #FFFFFF;
   border-bottom: 1px solid #E5E7EB;
-  align-items: center;
 }
 
 .tabs {
   display: flex;
   gap: 4px;
-  flex: 1;
 }
 
 .tab {
@@ -75,29 +74,6 @@
   color: #2563EB;
 }
 
-.filterToggle {
-  display: none;
-  padding: 6px 10px;
-  background: #F3F4F6;
-  border: 1px solid #D1D5DB;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #374151;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.filterToggle:hover {
-  background: #E5E7EB;
-}
-
-.main {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 16px 16px;
-}
-
 /* Sidebar layout */
 .allLayout {
   display: flex;
@@ -114,7 +90,84 @@
   gap: 8px;
 }
 
-/* Mobile: stack layout, collapse sidebar */
+/* Sidebar on desktop: always visible */
+.sidebarWrapper {
+  flex-shrink: 0;
+}
+
+/* Floating filter button (mobile only) */
+.fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 30;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #2563EB;
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+  cursor: pointer;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.fab:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+}
+
+.fab:active {
+  transform: scale(0.95);
+}
+
+.fabActive {
+  background: #374151;
+  box-shadow: 0 4px 16px rgba(55, 65, 81, 0.4);
+}
+
+/* Sidebar overlay on mobile */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.overlayPanel {
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  width: 100%;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 0 0 16px 0;
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.overlayHandle {
+  width: 36px;
+  height: 4px;
+  background: #D1D5DB;
+  border-radius: 2px;
+  margin: 10px auto;
+  flex-shrink: 0;
+}
+
+/* Desktop overrides */
 @media (min-width: 769px) {
   .header {
     padding: 16px 32px;
@@ -132,43 +185,28 @@
   .allLayout {
     padding: 16px 32px 32px;
   }
-  /* Always show sidebar on desktop */
-  .sidebarWrapper {
-    display: block !important;
+  .fab {
+    display: none;
+  }
+  .overlay {
+    display: none;
+  }
+  .app {
+    padding-bottom: 0;
   }
 }
 
-/* Mobile: stack layout, collapse sidebar */
+/* Mobile: stack layout */
 @media (max-width: 768px) {
   .allLayout {
     flex-direction: column;
     padding: 8px 8px 16px;
   }
-
-  .filterToggle {
-    display: inline-block;
-  }
-
-  .sidebarWrapperMobileHidden {
-    display: none;
-  }
-
   .mainContent {
     width: 100%;
   }
-
   .newBookingBtn {
     padding: 6px 12px;
     font-size: 12px;
-  }
-}
-
-.sidebarWrapper {
-  flex-shrink: 0;
-}
-
-@media (min-width: 769px) {
-  .sidebarWrapper {
-    display: block !important;
   }
 }

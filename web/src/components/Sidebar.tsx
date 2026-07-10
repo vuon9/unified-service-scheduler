@@ -9,6 +9,7 @@ interface Props {
   selectedBay: string;
   onSelectTech: (id: string) => void;
   onSelectBay: (id: string) => void;
+  fullWidth?: boolean;
 }
 
 const COLORS = ['#2563EB', '#16A34A', '#9333EA', '#D97706', '#DC2626', '#0891B2'];
@@ -42,7 +43,7 @@ const itemStyle = (active: boolean, color: string): React.CSSProperties => ({
 export default function Sidebar({
   technicians, serviceBays, appointments,
   selectedTech, selectedBay,
-  onSelectTech, onSelectBay,
+  onSelectTech, onSelectBay, fullWidth,
 }: Props) {
   const [tab, setTab] = useState<SidebarTab>('technicians');
 
@@ -75,7 +76,7 @@ export default function Sidebar({
 
   return (
     <div style={{
-      width: '220px',
+      width: fullWidth ? '100%' : '220px',
       flexShrink: 0,
       background: '#fff',
       borderRadius: '8px',
