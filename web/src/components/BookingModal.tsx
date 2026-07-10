@@ -145,20 +145,18 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
             </div>
           </div>
 
-          <div className={styles.row}>
-            <div className={styles.field}>
-              <label className={styles.label}>Date &amp; Time</label>
-              <input
-                type="datetime-local"
-                className={styles.input}
-                value={datetime}
-                min={minDatetime}
-                onChange={(e) => setDatetime(e.target.value)}
-              />
-              {selectedServiceType && (
-                <span className={styles.hint}>({selectedServiceType.duration_minutes} min)</span>
-              )}
-            </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Date &amp; Time</label>
+            <input
+              type="datetime-local"
+              className={styles.input}
+              value={datetime}
+              min={minDatetime}
+              onChange={(e) => setDatetime(e.target.value)}
+            />
+            {selectedServiceType && (
+              <span className={styles.hint}>({selectedServiceType.duration_minutes} min)</span>
+            )}
           </div>
 
           {/* Availability alert */}
