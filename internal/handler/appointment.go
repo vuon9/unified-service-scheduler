@@ -46,12 +46,9 @@ func (h *AppointmentHandler) Book(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, availErr.Reason, availErr.Message)
 			return
 		}
-		if strings.Contains(err.Error(), "in the future") {
-			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
-			return
-		}
-		if strings.Contains(err.Error(), "does not own") {
-			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		var valErr *service.ValidationError
+		if errors.As(err, &valErr) {
+			writeError(w, http.StatusBadRequest, valErr.Reason, valErr.Message)
 			return
 		}
 		slog.Error("failed to book appointment", "error", err)
@@ -125,11 +122,11 @@ func (h *AppointmentHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 	apt, err := h.svc.Cancel(r.Context(), id)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			writeError(w, http.StatusNotFound, "not_found", "Appointment not found")
+			writeError(w, http.StatusNotFound, model.ErrAppointmentNotFound, "Appointment not found")
 			return
 		}
 		if strings.Contains(err.Error(), "already cancelled") {
-			writeError(w, http.StatusConflict, "already_cancelled", "Appointment is already cancelled")
+			writeError(w, http.StatusConflict, model.ErrAppointmentAlreadyCancelled, "Appointment is already cancelled")
 			return
 		}
 		slog.Error("failed to cancel appointment", "error", err)

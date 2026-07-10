@@ -130,6 +130,17 @@ const (
 // Error reason constants for availability conflicts.
 const (
 	ErrNoQualifiedTechnician = "no_qualified_technician"
-	ErrNoServiceBay          = "no_service_bay"
-	ErrNoAvailability        = "no_availability"
+	ErrNoServiceBayAvailable = "no_service_bay_available"
+	ErrUnavailable           = "unavailable"
+)
+
+// Error reason constants for validation errors.
+const (
+	ErrPastStartTime             = "past_start_time"
+	ErrVehicleNotFound           = "vehicle_not_found"
+	ErrServiceTypeNotFound       = "service_type_not_found"
+	ErrDealershipNotFound        = "dealership_not_found"
+	ErrCustomerDoesNotOwnVehicle = "customer_does_not_own_vehicle"
+	ErrAppointmentNotFound       = "appointment_not_found"
+	ErrAppointmentAlreadyCancelled = "appointment_already_cancelled"
 )

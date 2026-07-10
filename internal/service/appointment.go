@@ -25,26 +25,54 @@ func New(repo *repository.Repository) *Service {
 // Book attempts to book an appointment, checking real-time availability
 // and performing the insert atomically within a transaction.
 func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*model.Appointment, error) {
-	// 1. Load vehicle and verify customer ownership
-	vehicle, err := s.repo.GetVehicle(ctx, s.repo.DB, req.VehicleID)
-	if err != nil {
-		return nil, fmt.Errorf("vehicle not found: %w", err)
-	}
-	if vehicle.CustomerID != req.CustomerID {
-		return nil, fmt.Errorf("customer %s does not own vehicle %s", req.CustomerID, req.VehicleID)
+	// 0. Check past start time (cheapest validation first, no DB needed)
+	if req.ScheduledStart.Before(time.Now()) {
+		return nil, &ValidationError{
+			Reason:  model.ErrPastStartTime,
+			Message: "scheduled start time must be in the future",
+		}
 	}
 
-	// 2. Load service type, compute scheduled_end
+	// 1. Validate dealership exists
+	if _, err := s.repo.GetDealership(ctx, s.repo.DB, req.DealershipID); err != nil {
+		return nil, &ValidationError{
+			Reason:  model.ErrDealershipNotFound,
+			Message: fmt.Sprintf("dealership %s not found", req.DealershipID),
+		}
+	}
+
+	// 2. Load vehicle
+	vehicle, err := s.repo.GetVehicle(ctx, s.repo.DB, req.VehicleID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, &ValidationError{
+				Reason:  model.ErrVehicleNotFound,
+				Message: fmt.Sprintf("vehicle %s not found", req.VehicleID),
+			}
+		}
+		return nil, fmt.Errorf("failed to load vehicle: %w", err)
+	}
+	if vehicle.CustomerID != req.CustomerID {
+		return nil, &ValidationError{
+			Reason:  model.ErrCustomerDoesNotOwnVehicle,
+			Message: fmt.Sprintf("customer %s does not own vehicle %s", req.CustomerID, req.VehicleID),
+		}
+	}
+
+	// 3. Load service type, compute scheduled_end
 	svcType, err := s.repo.GetServiceType(ctx, s.repo.DB, req.ServiceTypeID)
 	if err != nil {
-		return nil, fmt.Errorf("service type not found: %w", err)
-	}
-	if req.ScheduledStart.Before(time.Now()) {
-		return nil, fmt.Errorf("scheduled start time must be in the future")
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, &ValidationError{
+				Reason:  model.ErrServiceTypeNotFound,
+				Message: fmt.Sprintf("service type %s not found", req.ServiceTypeID),
+			}
+		}
+		return nil, fmt.Errorf("failed to load service type: %w", err)
 	}
 	scheduledEnd := req.ScheduledStart.Add(time.Duration(svcType.DurationMinutes) * time.Minute)
 
-	// 3. Load qualified technicians for this service type at this dealership
+	// 4. Load qualified technicians for this service type at this dealership
 	qualifiedTechs, err := s.repo.GetQualifiedTechnicians(ctx, s.repo.DB, req.DealershipID, req.ServiceTypeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load qualified technicians: %w", err)
@@ -60,14 +88,14 @@ func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*
 		}
 	}
 
-	// 4. Load all service bays at this dealership
+	// 5. Load all service bays at this dealership
 	bays, err := s.repo.GetServiceBays(ctx, s.repo.DB, req.DealershipID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load service bays: %w", err)
 	}
 	if len(bays) == 0 {
 		return nil, &AvailabilityError{
-			Reason:  model.ErrNoServiceBay,
+			Reason:  model.ErrNoServiceBayAvailable,
 			Message: "No service bays available at this dealership",
 			Details: map[string]interface{}{
 				"available_technicians": true,
@@ -124,7 +152,7 @@ func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*
 	}
 	if len(availableBays) == 0 {
 		return nil, &AvailabilityError{
-			Reason:  model.ErrNoServiceBay,
+			Reason:  model.ErrNoServiceBayAvailable,
 			Message: "No service bay available for the requested time slot",
 			Details: map[string]interface{}{
 				"available_technicians": true,
@@ -239,4 +267,24 @@ type AvailabilityError struct {
 
 func (e *AvailabilityError) Error() string {
 	return e.Message
+}
+
+// ValidationError is returned when a booking request has invalid parameters.
+type ValidationError struct {
+	Reason  string
+	Message string
+}
+
+func (e *ValidationError) Error() string {
+	return e.Message
+}
+
+// ListVehicles returns all vehicles.
+func (s *Service) ListVehicles(ctx context.Context) ([]model.Vehicle, error) {
+	return s.repo.ListVehicles(ctx, s.repo.DB)
+}
+
+// ListServiceTypes returns all service types.
+func (s *Service) ListServiceTypes(ctx context.Context) ([]model.ServiceType, error) {
+	return s.repo.ListServiceTypes(ctx, s.repo.DB)
 }

@@ -1,7 +1,6 @@
 import type { Appointment, Technician, TabFilter, ToastMessage, ViewMode, ServiceBay } from './types';
 import { useState, useEffect, useCallback } from 'react';
 import { fetchAppointments, fetchTechnicians } from './api';
-import AppointmentList from './components/AppointmentList';
 import BookingModal from './components/BookingModal';
 import DetailModal from './components/DetailModal';
 import ViewControls from './components/ViewControls';
@@ -90,8 +89,6 @@ export default function App() {
     setShowDetail(appointment);
   };
 
-  const isAll = activeTab === 'all';
-
   return (
     <div className={styles.app}>
       <header className={styles.header}>
@@ -113,110 +110,79 @@ export default function App() {
         ))}
       </nav>
 
-      {isAll && (
-        <div className={styles.allLayout}>
-          <Sidebar
-            technicians={technicians}
-            serviceBays={serviceBays}
-            appointments={appointments}
-            selectedTech={selectedTech}
-            selectedBay={selectedBay}
-            onSelectTech={(id) => { setSelectedTech(selectedTech === id ? '' : id); setSelectedBay(''); }}
-            onSelectBay={(id) => { setSelectedBay(selectedBay === id ? '' : id); setSelectedTech(''); }}
-          />
-          <div className={styles.mainContent}>
-            {error ? (
-              <AppointmentList
-                appointments={filteredAppointments}
-                activeTab={activeTab}
-                loading={false}
-                error={error}
-                onRetry={loadAppointments}
-                onViewDetail={handleViewDetail}
-                onNewBooking={() => setShowBooking(true)}
+      <div className={styles.allLayout}>
+        <Sidebar
+          technicians={technicians}
+          serviceBays={serviceBays}
+          appointments={appointments}
+          selectedTech={selectedTech}
+          selectedBay={selectedBay}
+          onSelectTech={(id) => { setSelectedTech(selectedTech === id ? '' : id); setSelectedBay(''); }}
+          onSelectBay={(id) => { setSelectedBay(selectedBay === id ? '' : id); setSelectedTech(''); }}
+        />
+        <div className={styles.mainContent}>
+          {error ? (
+            <div style={{ padding: '24px', textAlign: 'center' }}>
+              <p style={{ color: '#DC2626', marginBottom: '12px', fontSize: '14px' }}>{error}</p>
+              <button
+                onClick={loadAppointments}
+                style={{
+                  padding: '8px 20px', background: '#2563EB', color: '#fff',
+                  border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px',
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          ) : loading ? (
+            <div style={{ padding: '24px', textAlign: 'center' }}>
+              <div style={{
+                width: '24px', height: '24px', border: '3px solid #E5E7EB',
+                borderTopColor: '#2563EB', borderRadius: '50%', animation: 'spin 0.8s linear infinite',
+                margin: '0 auto 12px',
+              }} />
+              <p style={{ color: '#6B7280', fontSize: '14px' }}>Loading appointments...</p>
+            </div>
+          ) : (
+            <>
+              <ViewControls
+                mode={viewMode}
+                onModeChange={setViewMode}
+                currentDate={currentDate}
+                onDateChange={setCurrentDate}
               />
-            ) : loading ? (
-              <AppointmentList
-                appointments={filteredAppointments}
-                activeTab={activeTab}
-                loading={true}
-                error={null}
-                onRetry={loadAppointments}
-                onViewDetail={handleViewDetail}
-                onNewBooking={() => setShowBooking(true)}
-              />
-            ) : (
-              <>
-                <ViewControls
-                  mode={viewMode}
-                  onModeChange={setViewMode}
+              {viewMode === 'timeline' && (
+                <TimelineView
+                  appointments={appointments}
+                  technicians={selectedTech ? technicians.filter(t => t.id === selectedTech) : technicians}
+                  selectedTech={selectedTech}
+                  currentDate={currentDate}
+                  onViewDetail={handleViewDetail}
+                />
+              )}
+              {viewMode === 'week' && (
+                <WeekView
+                  appointments={appointments}
                   technicians={technicians}
                   selectedTech={selectedTech}
-                  onTechChange={(id) => { setSelectedTech(id); setSelectedBay(''); }}
                   currentDate={currentDate}
+                  onViewDetail={handleViewDetail}
+                />
+              )}
+              {viewMode === 'month' && (
+                <MonthView
+                  appointments={appointments}
+                  technicians={technicians}
+                  selectedTech={selectedTech}
+                  currentDate={currentDate}
+                  onViewDetail={handleViewDetail}
                   onDateChange={setCurrentDate}
                 />
-                {viewMode === 'timeline' && (
-                  <TimelineView
-                    appointments={appointments}
-                    technicians={selectedTech ? technicians.filter(t => t.id === selectedTech) : technicians}
-                    selectedTech={selectedTech}
-                    currentDate={currentDate}
-                    onViewDetail={handleViewDetail}
-                  />
-                )}
-                {viewMode === 'week' && (
-                  <WeekView
-                    appointments={appointments}
-                    technicians={technicians}
-                    selectedTech={selectedTech}
-                    currentDate={currentDate}
-                    onViewDetail={handleViewDetail}
-                  />
-                )}
-                {viewMode === 'month' && (
-                  <MonthView
-                    appointments={appointments}
-                    technicians={technicians}
-                    selectedTech={selectedTech}
-                    currentDate={currentDate}
-                    onViewDetail={handleViewDetail}
-                    onDateChange={setCurrentDate}
-                  />
-                )}
-              </>
-            )}
-          </div>
+              )}
+            </>
+          )}
         </div>
-      )}
-
-      {!isAll && (
-        <main className={styles.main}>
-          <AppointmentList
-            appointments={filteredAppointments}
-            activeTab={activeTab}
-            loading={loading}
-            error={error}
-            onRetry={loadAppointments}
-            onViewDetail={handleViewDetail}
-            onNewBooking={() => setShowBooking(true)}
-          />
-        </main>
-      )}
-
-      {isAll && !error && loading && (
-        <main className={styles.main}>
-          <AppointmentList
-            appointments={filteredAppointments}
-            activeTab={activeTab}
-            loading={loading}
-            error={error}
-            onRetry={loadAppointments}
-            onViewDetail={handleViewDetail}
-            onNewBooking={() => setShowBooking(true)}
-          />
-        </main>
-      )}
+      </div>
 
       {showBooking && (
         <BookingModal onClose={() => setShowBooking(false)} onBooked={handleBooked} />

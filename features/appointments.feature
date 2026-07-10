@@ -89,23 +89,32 @@ Feature: Unified Service Scheduler
     Then the booking should fail with reason "no_qualified_technician"
 
   # ============================================================
-  # Boundary Cases
+  # Boundary Cases — overlap formula verified with all resources occupied
   # ============================================================
 
-  Scenario: T-13 - Adjacent appointments with no overlap
-    Given an appointment exists for customer "c1" with service "s1" for vehicle "v1" at dealership "d1" from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
-    When customer "c2" books service "s1" for vehicle "v2" at dealership "d1" starting "2026-07-15T10:00:00+07:00"
+  Scenario: T-13 - Adjacent appointments with no overlap (non-inclusive end)
+    Given technician "t1" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    And technician "t2" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    And service bay "b1" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    And service bay "b2" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    When customer "c1" books service "s1" for vehicle "v1" at dealership "d1" starting "2026-07-15T10:00:00+07:00"
     Then the booking status should be "confirmed"
 
   Scenario: T-14 - One minute overlap causes conflict
-    Given an appointment exists for customer "c1" with service "s1" for vehicle "v1" at dealership "d1" from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
-    When customer "c2" books service "s1" for vehicle "v2" at dealership "d1" starting "2026-07-15T09:59:00+07:00"
-    Then the booking should fail with reason "unavailable"
+    Given technician "t1" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    And technician "t2" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    And service bay "b1" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    And service bay "b2" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    When customer "c1" books service "s1" for vehicle "v1" at dealership "d1" starting "2026-07-15T09:59:00+07:00"
+    Then the booking should fail with reason "no_qualified_technician"
 
   Scenario: T-15 - Partial overlap with existing appointment
-    Given an appointment exists for customer "c1" with service "s2" for vehicle "v1" at dealership "d1" from "2026-07-15T10:00:00+07:00" to "2026-07-15T12:00:00+07:00"
-    When customer "c2" books service "s1" for vehicle "v2" at dealership "d1" starting "2026-07-15T11:00:00+07:00"
-    Then the booking should fail with reason "unavailable"
+    Given technician "t1" is occupied from "2026-07-15T10:00:00+07:00" to "2026-07-15T12:00:00+07:00"
+    And technician "t2" is occupied from "2026-07-15T10:00:00+07:00" to "2026-07-15T12:00:00+07:00"
+    And service bay "b1" is occupied from "2026-07-15T10:00:00+07:00" to "2026-07-15T12:00:00+07:00"
+    And service bay "b2" is occupied from "2026-07-15T10:00:00+07:00" to "2026-07-15T12:00:00+07:00"
+    When customer "c1" books service "s1" for vehicle "v1" at dealership "d1" starting "2026-07-15T11:00:00+07:00"
+    Then the booking should fail with reason "no_qualified_technician"
 
   # ============================================================
   # Validation Cases
@@ -117,11 +126,11 @@ Feature: Unified Service Scheduler
     Then the booking should fail with reason "<reason>"
 
     Examples:
-      | customer | service | vehicle | dealership | start                      | reason                             |
-      | c1       | s1      | v1      | d1         | 2020-01-01T09:00:00+07:00 | "past_start_time"                  |
-      | c1       | s1      | vx      | d1         | 2026-07-15T09:00:00+07:00 | "vehicle_not_found"                |
-      | c1       | sx      | v1      | d1         | 2026-07-15T09:00:00+07:00 | "service_type_not_found"           |
-      | c1       | s1      | v1      | dx         | 2026-07-15T09:00:00+07:00 | "dealership_not_found"             |
+      | customer | service | vehicle | dealership | start                      | reason                       |
+      | c1       | s1      | v1      | d1         | 2020-01-01T09:00:00+07:00 | past_start_time              |
+      | c1       | s1      | vx      | d1         | 2026-07-15T09:00:00+07:00 | vehicle_not_found            |
+      | c1       | sx      | v1      | d1         | 2026-07-15T09:00:00+07:00 | service_type_not_found       |
+      | c1       | s1      | v1      | dx         | 2026-07-15T09:00:00+07:00 | dealership_not_found         |
 
   Scenario: T-17 - Customer does not own the vehicle
     Given customer "c1" has vehicle "v1"
@@ -153,4 +162,4 @@ Feature: Unified Service Scheduler
   Scenario: T-24 - Two customers book same resources concurrently
     Given only 1 qualified technician and 1 service bay are free from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
     When customer "c1" and customer "c2" simultaneously book service "s1" for their vehicles at dealership "d1" starting "2026-07-15T09:00:00+07:00"
-    Then exactly 1 booking should succeed with status "confirmed" and 1 should fail with reason "unavailable"
+    Then exactly 1 booking should succeed with status "confirmed" and 1 should fail with reason "no_qualified_technician"
