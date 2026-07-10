@@ -98,14 +98,7 @@ export default function App() {
   const hasFilters = selectedTech || selectedBay;
 
   const handleFabClick = () => {
-    if (hasFilters) {
-      // Clear filters
-      setSelectedTech('');
-      setSelectedBay('');
-      setShowSidebar(false);
-    } else {
-      setShowSidebar(true);
-    }
+    setShowSidebar(true);
   };
 
   const sidebarContent = (fullWidth?: boolean) => (
@@ -228,9 +221,9 @@ export default function App() {
       <button
         className={`${styles.fab} ${showSidebar ? styles.fabActive : ''}`}
         onClick={handleFabClick}
-        aria-label={hasFilters ? 'Clear filters' : 'Open filters'}
+        aria-label="Open filters"
       >
-        {hasFilters ? '✕' : '⚙'}
+        ⚙
       </button>
 
       {/* Mobile sidebar overlay */}
@@ -238,6 +231,19 @@ export default function App() {
         <div className={styles.overlay} onClick={() => setShowSidebar(false)}>
           <div className={styles.overlayPanel} onClick={e => e.stopPropagation()}>
             <div className={styles.overlayHandle} />
+            {hasFilters && (
+              <button
+                onClick={() => { setSelectedTech(''); setSelectedBay(''); setShowSidebar(false); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px', width: '100%',
+                  padding: '10px 16px', border: 'none', borderBottom: '1px solid #E5E7EB',
+                  background: '#FEF2F2', color: '#DC2626', fontSize: '13px', fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                ✕ Clear filters
+              </button>
+            )}
             {sidebarContent(true)}
           </div>
         </div>
