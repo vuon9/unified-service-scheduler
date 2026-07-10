@@ -265,7 +265,7 @@ func runRawMigrations(db *sqlx.DB, dir string) error {
 			return err
 		}
 
-		statements := strings.Split(string(sqlBytes), ";")
+		statements := splitSQLStatements(string(sqlBytes))
 		for _, stmt := range statements {
 			stmt = strings.TrimSpace(stmt)
 			if stmt == "" {
@@ -288,6 +288,41 @@ func runRawMigrations(db *sqlx.DB, dir string) error {
 	}
 
 	return nil
+}
+
+// splitSQLStatements splits a SQL script into individual statements,
+// handling semicolons inside CREATE TRIGGER/VIEW/PROCEDURE blocks.
+func splitSQLStatements(sql string) []string {
+	var statements []string
+	depth := 0
+	current := strings.Builder{}
+
+	for _, line := range strings.Split(sql, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "BEGIN") {
+			depth++
+		} else if strings.HasPrefix(trimmed, "END") {
+			depth--
+		}
+
+		if current.Len() > 0 {
+			current.WriteString("\n")
+		}
+		current.WriteString(line)
+
+		if depth == 0 && strings.Contains(current.String(), ";") {
+			stmt := strings.TrimSpace(current.String())
+			if stmt != "" {
+				statements = append(statements, stmt)
+			}
+			current.Reset()
+		}
+	}
+
+	if remaining := strings.TrimSpace(current.String()); remaining != "" {
+		statements = append(statements, remaining)
+	}
+	return statements
 }
 
 func runSeedData(db *sqlx.DB) error {

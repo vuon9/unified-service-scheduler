@@ -124,7 +124,7 @@ func runMigrations(db *sql.DB, migrationsDir string) error {
 			return fmt.Errorf("failed to begin tx for migration %s: %w", m.version, err)
 		}
 
-		statements := strings.Split(string(sqlBytes), ";")
+		statements := splitSQLStatements(string(sqlBytes))
 		for _, stmt := range statements {
 			stmt = strings.TrimSpace(stmt)
 			if stmt == "" {
@@ -149,6 +149,44 @@ func runMigrations(db *sql.DB, migrationsDir string) error {
 	}
 
 	return nil
+}
+
+// splitSQLStatements splits a SQL script into individual statements,
+// handling semicolons inside CREATE TRIGGER/VIEW/PROCEDURE blocks.
+func splitSQLStatements(sql string) []string {
+	var statements []string
+	depth := 0
+	current := strings.Builder{}
+
+	for _, line := range strings.Split(sql, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "BEGIN") {
+			depth++
+		} else if strings.HasPrefix(trimmed, "END") {
+			depth--
+		}
+
+		if current.Len() > 0 {
+			current.WriteString("\n")
+		}
+		current.WriteString(line)
+
+		// Only split on ; when not inside a BEGIN..END block
+		if depth == 0 && strings.Contains(current.String(), ";") {
+			stmt := strings.TrimSpace(current.String())
+			if stmt != "" {
+				statements = append(statements, stmt)
+			}
+			current.Reset()
+		}
+	}
+
+	// Flush any remaining
+	if remaining := strings.TrimSpace(current.String()); remaining != "" {
+		statements = append(statements, remaining)
+	}
+
+	return statements
 }
 
 // DBTX is an interface satisfied by both *sqlx.DB and *sqlx.Tx.
