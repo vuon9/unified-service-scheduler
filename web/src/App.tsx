@@ -92,29 +92,31 @@ export default function App() {
 
   return (
     <div className={styles.app}>
-      <header className={styles.header}>
-        <h1 className={styles.logo}>Keyloop Scheduler</h1>
-        <button className={styles.newBookingBtn} onClick={() => setShowBooking(true)}>
-          + New Booking
-        </button>
-      </header>
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: '#FFFFFF' }}>
+        <header className={styles.header}>
+          <h1 className={styles.logo}>Keyloop Scheduler</h1>
+          <button className={styles.newBookingBtn} onClick={() => setShowBooking(true)}>
+            + New Booking
+          </button>
+        </header>
 
-      <nav className={styles.tabBar}>
-        <div className={styles.tabs}>
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              className={`${styles.tab} ${activeTab === tab.key ? styles.tabActive : ''}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <button className={styles.filterToggle} onClick={() => setShowSidebar(!showSidebar)}>
-          {showSidebar ? 'Hide Filters' : 'Filters'}
-        </button>
-      </nav>
+        <nav className={styles.tabBar}>
+          <div className={styles.tabs}>
+            {TABS.map((tab) => (
+              <button
+                key={tab.key}
+                className={`${styles.tab} ${activeTab === tab.key ? styles.tabActive : ''}`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <button className={styles.filterToggle} onClick={() => setShowSidebar(!showSidebar)}>
+            {showSidebar ? 'Hide Filters' : 'Filters'}
+          </button>
+        </nav>
+      </div>
 
       <div className={styles.allLayout}>
         <div className={`${styles.sidebarWrapper} ${!showSidebar ? styles.sidebarWrapperMobileHidden : ''}`}>

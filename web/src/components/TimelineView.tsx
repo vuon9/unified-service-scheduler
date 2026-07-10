@@ -40,26 +40,11 @@ function formatCompactDay(d: Date) {
 }
 
 export default function TimelineView({ appointments, selectedTech, currentDate, onViewDetail }: Props) {
-  // Build a multi-day range: currentDate ± 3 days = 7 days total
-  const rangeStart = useMemo(() => {
-    const d = new Date(currentDate);
-    d.setDate(d.getDate() - 3);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, [currentDate]);
-
-  const rangeEnd = useMemo(() => {
-    const d = new Date(rangeStart);
-    d.setDate(d.getDate() + 7);
-    return d;
-  }, [rangeStart]);
-
-  // Filter appointments in range + filter by selected tech
+  // Show ALL confirmed appointments, no date range filter
   const filtered = useMemo(() => {
     let list = appointments.filter(a => {
       if (a.status !== 'confirmed') return false;
-      const s = new Date(a.scheduled_start);
-      return s >= rangeStart && s < rangeEnd;
+      return true; // no date range — show everything
     });
     if (selectedTech) {
       list = list.filter(a => a.technician_id === selectedTech);
@@ -67,7 +52,7 @@ export default function TimelineView({ appointments, selectedTech, currentDate, 
     // Sort by start time
     list.sort((a, b) => new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime());
     return list;
-  }, [appointments, rangeStart, rangeEnd, selectedTech]);
+  }, [appointments, selectedTech]);
 
   // Group by date
   const days = useMemo(() => {
@@ -81,13 +66,10 @@ export default function TimelineView({ appointments, selectedTech, currentDate, 
   }, [filtered]);
 
   if (filtered.length === 0) {
-    const dayStr = currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     return (
-      <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #E5E7EB', fontWeight: 600, fontSize: '15px', color: '#111827' }}>
-          {dayStr}
-          <span style={{ color: '#9CA3AF', fontWeight: 400, marginLeft: '8px', fontSize: '13px' }}>— no appointments</span>
-        </div>
+      <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB', padding: '40px 16px', textAlign: 'center' }}>
+        <div style={{ fontSize: '15px', fontWeight: 600, color: '#6B7280' }}>No confirmed appointments</div>
+        <div style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '4px' }}>Book a new appointment to get started</div>
       </div>
     );
   }
