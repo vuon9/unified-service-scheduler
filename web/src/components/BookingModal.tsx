@@ -161,18 +161,6 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
             </div>
           </div>
 
-          {/* Notes */}
-          <div className={styles.field}>
-            <label className={styles.label}>Notes</label>
-            <textarea
-              className={styles.textarea}
-              placeholder="Optional — e.g. customer preferences, special requests..."
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
-
           {/* Availability alert */}
           {checkTouched && (
             <div className={`${styles.alert} ${availability?.available ? styles.alertGreen : styles.alertRed}`}>
@@ -197,6 +185,18 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
               )}
             </div>
           )}
+
+          {/* Notes */}
+          <div className={styles.field}>
+            <label className={styles.label}>Notes (optional)</label>
+            <textarea
+              className={styles.textarea}
+              placeholder="e.g. customer preferences, special requests..."
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
 
           {error && <p className={styles.error}>{error}</p>}
         </div>

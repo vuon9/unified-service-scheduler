@@ -156,11 +156,6 @@
   opacity: 0.8;
 }
 
-/* Loading state */
-.alertGreen:has(.alertInner:empty) {
-  /* fallback for loading */
-}
-
 .error {
   color: #DC2626;
   font-size: 13px;
@@ -170,8 +165,8 @@
 
 .actions {
   display: flex;
-  flex-direction: column-reverse;
-  gap: 8px;
+  flex-direction: row;
+  gap: 10px;
   padding: 20px 24px;
   border-top: 1px solid #F3F4F6;
   margin-top: 4px;
@@ -187,7 +182,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s;
-  width: 100%;
+  flex: 1;
 }
 
 .cancelBtn:hover:not(:disabled) {
@@ -204,7 +199,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
-  width: 100%;
+  flex: 2;
 }
 
 .bookBtn:hover:not(:disabled) {
@@ -245,8 +240,8 @@
   }
 
   .row {
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .actions {
