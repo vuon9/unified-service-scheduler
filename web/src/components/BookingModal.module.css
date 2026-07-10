@@ -80,6 +80,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .fieldLabel {
@@ -101,6 +102,7 @@
   transition: border-color 0.2s;
   outline: none;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .select:focus,
@@ -283,8 +285,11 @@
   }
 
   .formRow {
-    flex-direction: column;
-    gap: 12px;
+    gap: 8px;
+  }
+
+  .field {
+    min-width: 0;
   }
 
   .actions {
