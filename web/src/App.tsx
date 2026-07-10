@@ -85,8 +85,6 @@ export default function App() {
     setShowDetail(appointment);
   };
 
-  const toggleSidebar = () => setShowSidebar(v => !v);
-
   const handleSelectTech = (id: string) => {
     setSelectedTech(selectedTech === id ? '' : id);
     setSelectedBay('');
@@ -98,6 +96,17 @@ export default function App() {
   };
 
   const hasFilters = selectedTech || selectedBay;
+
+  const handleFabClick = () => {
+    if (hasFilters) {
+      // Clear filters
+      setSelectedTech('');
+      setSelectedBay('');
+      setShowSidebar(false);
+    } else {
+      setShowSidebar(true);
+    }
+  };
 
   const sidebarContent = (fullWidth?: boolean) => (
     <Sidebar
@@ -218,10 +227,10 @@ export default function App() {
       {/* Floating filter button (mobile only) */}
       <button
         className={`${styles.fab} ${showSidebar ? styles.fabActive : ''}`}
-        onClick={toggleSidebar}
-        aria-label={showSidebar ? 'Close filters' : 'Open filters'}
+        onClick={handleFabClick}
+        aria-label={hasFilters ? 'Clear filters' : 'Open filters'}
       >
-        {hasFilters ? '✓' : '⚙'}
+        {hasFilters ? '✕' : '⚙'}
       </button>
 
       {/* Mobile sidebar overlay */}
