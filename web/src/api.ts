@@ -3,6 +3,8 @@ import type {
   AppointmentListResponse,
   Vehicle,
   ServiceType,
+  Technician,
+  ServiceBay,
   AvailabilityRequest,
   AvailabilityResponse,
   CreateAppointmentRequest,
