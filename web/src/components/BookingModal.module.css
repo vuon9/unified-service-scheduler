@@ -114,6 +114,24 @@
   height: auto;
 }
 
+/* Normalize datetime input in Safari — native picker icons add visual noise */
+input[type="datetime-local"] {
+  line-height: 1.5;
+  display: inline-flex;
+  align-items: center;
+}
+
+input[type="datetime-local"]::-webkit-datetime-edit {
+  line-height: 1.5;
+  padding: 0;
+}
+
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-clear-button,
+input[type="datetime-local"]::-webkit-inner-spin-button {
+  opacity: 0.6;
+}
+
 .hint {
   font-size: 12px;
   color: #9CA3AF;
