@@ -53,9 +53,8 @@ export default function ViewControls({
 
       <span style={{ color: '#D1D5DB', fontSize: '13px' }}>|</span>
 
-      {/* Date navigation */}
+      {/* Date navigation: prev | date | next | Today */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-        <button style={{...arrowBtn, fontSize: '13px', padding: '4px 8px'}} onClick={() => go(-1, 'week')}>{'<<'}</button>
         <button style={{...arrowBtn, fontSize: '16px', padding: '4px 8px'}} onClick={() => go(-1, mode)}>{'<'}</button>
         <span style={{ fontSize: '13px', fontWeight: 600, minWidth: '100px', textAlign: 'center', whiteSpace: 'nowrap' }}>
           {mode === 'month'
@@ -63,7 +62,6 @@ export default function ViewControls({
             : currentDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
         </span>
         <button style={{...arrowBtn, fontSize: '16px', padding: '4px 8px'}} onClick={() => go(1, mode)}>{'>'}</button>
-        <button style={{...arrowBtn, fontSize: '13px', padding: '4px 8px'}} onClick={() => go(1, 'week')}>{'>>'}</button>
         <button
           style={{ ...btn(false, '#2563EB'), fontSize: '12px', padding: '4px 8px' }}
           onClick={() => onDateChange(new Date())}
