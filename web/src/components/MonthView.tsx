@@ -52,16 +52,16 @@ export default function MonthView({ appointments, technicians, selectedTech, cur
   return (
     <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
       {/* Day name headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(100px, 1fr))', background: '#F9FAFB', borderBottom: '2px solid #E5E7EB' }}>
-        {DAY_NAMES.map(d => (
-          <div key={d} style={{ padding: '10px 4px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: '#6B7280' }}>
+      <div style={{ display: 'inline-grid', gridTemplateColumns: 'repeat(7, minmax(100px, 1fr))', background: '#F9FAFB', borderBottom: '2px solid #E5E7EB', minWidth: '100%' }}>
+        {DAY_NAMES.map((d, i) => (
+          <div key={d} style={{ padding: '10px 4px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: '#6B7280', borderRight: i === DAY_NAMES.length - 1 ? '1px solid #E5E7EB' : 'none' }}>
             {d}
           </div>
         ))}
       </div>
 
       {/* Calendar grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(100px, 1fr))' }}>
+      <div style={{ display: 'inline-grid', gridTemplateColumns: 'repeat(7, minmax(100px, 1fr))', minWidth: '100%' }}>
         {cells.map((date, i) => {
           if (!date) {
             return <div key={`pad-${i}`} style={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', background: '#F9FAFB' }} />;

@@ -50,13 +50,15 @@ export default function WeekView({ appointments, technicians, selectedTech, curr
   return (
     <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
       {/* Day headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(110px, 1fr))', borderBottom: '2px solid #E5E7EB', background: '#F9FAFB' }}>
+      <div style={{ display: 'inline-grid', gridTemplateColumns: 'repeat(7, minmax(110px, 1fr))', borderBottom: '2px solid #E5E7EB', background: '#F9FAFB', minWidth: '100%' }}>
         {days.map((d, i) => {
           const dateStr = d.toISOString().split('T')[0];
           const isToday = dateStr === todayStr;
           return (
             <div key={i} style={{
-              padding: '10px 8px', textAlign: 'center', borderLeft: i > 0 ? '1px solid #E5E7EB' : 'none',
+              padding: '10px 8px', textAlign: 'center',
+              borderLeft: i > 0 ? '1px solid #E5E7EB' : 'none',
+              borderRight: i === days.length - 1 ? '1px solid #E5E7EB' : 'none',
             }}>
               <div style={{ fontSize: '12px', fontWeight: 600, color: isToday ? '#2563EB' : '#6B7280', marginBottom: '2px' }}>
                 {d.toLocaleDateString('en-US', { weekday: 'short' })}
@@ -77,7 +79,7 @@ export default function WeekView({ appointments, technicians, selectedTech, curr
       </div>
 
       {/* Appointments grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(110px, 1fr))', minHeight: '400px' }}>
+      <div style={{ display: 'inline-grid', gridTemplateColumns: 'repeat(7, minmax(110px, 1fr))', minHeight: '400px', minWidth: '100%' }}>
         {days.map((d, i) => {
           const dateStr = d.toISOString().split('T')[0];
           const dayApts = byDay[dateStr] || [];
@@ -97,6 +99,7 @@ export default function WeekView({ appointments, technicians, selectedTech, curr
           return (
             <div key={i} style={{
               borderLeft: i > 0 ? '1px solid #E5E7EB' : 'none',
+              borderRight: i === days.length - 1 ? '1px solid #E5E7EB' : 'none',
               borderBottom: '1px solid #E5E7EB',
               padding: '8px 6px',
               background: dateStr === todayStr ? '#F0F7FF' : '#fff',
