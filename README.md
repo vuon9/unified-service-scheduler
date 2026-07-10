@@ -92,7 +92,7 @@ This project was built iteratively using AI-assisted development with **OpenCode
 | Quality Gate | Mechanism |
 |---|---|
 | **Compilation** | `go build ./...` must pass before any commit |
-| **Unit tests** | `go test ./internal/service/ -v -count=1` covers booking logic (5 tests) and overlap correctness (4 tests) |
+| **Unit tests** | `go test ./internal/service/ -v -count=1` covers booking logic (9 tests) |
 | **Integration tests** | godog Gherkin tests run the full HTTP stack against real SQLite |
 | **Race detection** | `go test -race ./...` catches concurrent access issues |
 | **Code review** | Every AI commit was diff-reviewed by the human author |

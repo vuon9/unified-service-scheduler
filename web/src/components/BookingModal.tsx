@@ -22,7 +22,7 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
   const [checkTouched, setCheckTouched] = useState(false);
   const [booking, setBooking] = useState(false);
   const [error, setError] = useState('');
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     Promise.all([fetchVehicles(), fetchServiceTypes()])
@@ -50,7 +50,7 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
     }
     setCheckTouched(true);
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       setCheckingAvail(true);
       setError('');
       try {
@@ -69,8 +69,10 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
         setCheckingAvail(false);
       }
     }, 500);
+    timerRef.current = timer;
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      clearTimeout(timer);
+      timerRef.current = null;
     };
   }, [selectedVehicle, selectedService, datetime, buildScheduledStart]);
 

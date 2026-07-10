@@ -229,7 +229,6 @@ export default function App() {
               {viewMode === 'timeline' && (
                 <TimelineView
                   appointments={appointments}
-                  technicians={selectedTech ? technicians.filter(t => t.id === selectedTech) : technicians}
                   selectedTech={selectedTech}
                   currentDate={currentDate}
                   onViewDetail={handleViewDetail}
