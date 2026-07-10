@@ -249,7 +249,11 @@ func runRawMigrations(db *sqlx.DB, dir string) error {
 		if !strings.HasSuffix(name, ".up.sql") {
 			continue
 		}
+		// Skip version 003 (appointment seed data) in test DB
 		version := strings.SplitN(name, "_", 2)[0]
+		if version == "003" {
+			continue
+		}
 
 		var count int
 		db.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version = ?", version).Scan(&count)

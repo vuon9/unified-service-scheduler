@@ -19,7 +19,7 @@ type ConflictResult struct {
 
 // FindConflicts returns the technician and bay IDs that are busy during the given time range.
 func (r *Repository) FindConflicts(ctx context.Context, tx DBTX, vehicleID string, techIDs, bayIDs []string, start, end time.Time) (*ConflictResult, error) {
-	// Normalize to UTC for consistent SQLite string comparison
+	// Normalize to UTC for consistent comparison via strftime
 	start = start.UTC()
 	end = end.UTC()
 
@@ -40,7 +40,8 @@ func (r *Repository) FindConflicts(ctx context.Context, tx DBTX, vehicleID strin
 
 		query := fmt.Sprintf(`SELECT DISTINCT technician_id FROM appointments
 			WHERE status = 'confirmed'
-			AND scheduled_start < ? AND scheduled_end > ?
+			AND strftime('%%s', scheduled_start) < strftime('%%s', ?)
+			AND strftime('%%s', scheduled_end) > strftime('%%s', ?)
 			AND technician_id IN (%s)`, strings.Join(placeholders, ","))
 
 		var busyTechs []string
@@ -64,7 +65,8 @@ func (r *Repository) FindConflicts(ctx context.Context, tx DBTX, vehicleID strin
 
 		query := fmt.Sprintf(`SELECT DISTINCT service_bay_id FROM appointments
 			WHERE status = 'confirmed'
-			AND scheduled_start < ? AND scheduled_end > ?
+			AND strftime('%%s', scheduled_start) < strftime('%%s', ?)
+			AND strftime('%%s', scheduled_end) > strftime('%%s', ?)
 			AND service_bay_id IN (%s)`, strings.Join(placeholders, ","))
 
 		var busyBays []string
@@ -82,7 +84,8 @@ func (r *Repository) FindConflicts(ctx context.Context, tx DBTX, vehicleID strin
 		if err := tx.GetContext(ctx, &count, `SELECT COUNT(*) FROM appointments
 			WHERE status = 'confirmed'
 			AND vehicle_id = ?
-			AND scheduled_start < ? AND scheduled_end > ?`, vehicleID, end, start); err != nil {
+			AND strftime('%s', scheduled_start) < strftime('%s', ?)
+			AND strftime('%s', scheduled_end) > strftime('%s', ?)`, vehicleID, end, start); err != nil {
 			return nil, fmt.Errorf("FindConflicts (vehicle): %w", err)
 		}
 		result.VehicleBusy = count > 0

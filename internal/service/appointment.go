@@ -107,10 +107,8 @@ func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*
 		}
 	}
 
-	// 5. Begin transaction for atomic check + insert (IMMEDIATE to prevent concurrent race)
-	tx, err := s.repo.DB.BeginTxx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelSerializable,
-	})
+	// 5. Begin transaction for atomic check + insert
+	tx, err := s.repo.DB.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}

@@ -79,6 +79,7 @@ func setupTestService(t *testing.T) *Service {
 		                CHECK(status IN ('confirmed','cancelled','completed')),
 		created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
+	ALTER TABLE appointments ADD COLUMN notes TEXT NOT NULL DEFAULT '';
 	CREATE INDEX idx_appointments_technician_time
 		ON appointments(technician_id, status, scheduled_start, scheduled_end);
 	CREATE INDEX idx_appointments_bay_time
