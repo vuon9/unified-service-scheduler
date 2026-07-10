@@ -223,7 +223,9 @@ export default function App() {
         onClick={handleFabClick}
         aria-label="Open filters"
       >
-        ⚙
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 4h16v2L14 12v6l-4 2v-8L4 6V4z"/>
+        </svg>
       </button>
 
       {/* Mobile sidebar overlay */}
