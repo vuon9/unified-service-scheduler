@@ -79,7 +79,7 @@ func InitializeScenario(sctx *godog.ScenarioContext) {
 		svc := service.NewWithClock(repo, func() time.Time {
 			return time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 		})
-		router := handler.NewRouter(svc, repo)
+		router := handler.NewTestRouter(svc, repo)
 		server := httptest.NewServer(router)
 
 		state.db = db

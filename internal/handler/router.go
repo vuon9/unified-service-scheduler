@@ -63,3 +63,43 @@ func NewRouter(svc *service.Service, repo *repository.Repository) http.Handler {
 
 	return r
 }
+
+// NewTestRouter is like NewRouter but skips request logging for cleaner test output.
+func NewTestRouter(svc *service.Service, repo *repository.Repository) http.Handler {
+	r := chi.NewRouter()
+	r.Use(chimw.Recoverer)
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type", "X-Request-ID"},
+		ExposedHeaders: []string{"X-Request-ID"},
+		AllowCredentials: false,
+		MaxAge: 300,
+	}))
+	r.Use(RequestIDMiddleware)
+
+	apptHandler := NewAppointmentHandler(svc)
+	availHandler := NewAvailabilityHandler(svc, repo)
+
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+	r.Handle("/debug/vars", expvar.Handler())
+
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Route("/appointments", func(r chi.Router) {
+			r.Post("/", apptHandler.Book)
+			r.Get("/", apptHandler.List)
+			r.Get("/{id}", apptHandler.Get)
+			r.Post("/{id}/cancel", apptHandler.Cancel)
+		})
+		r.Post("/availability", availHandler.CheckAvailability)
+		r.Get("/vehicles", availHandler.ListVehicles)
+		r.Get("/service-types", availHandler.ListServiceTypes)
+		r.Get("/technicians", availHandler.ListTechnicians)
+		r.Get("/service-bays", availHandler.ListServiceBays)
+	})
+
+	return r
+}
