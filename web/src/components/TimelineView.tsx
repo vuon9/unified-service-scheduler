@@ -5,6 +5,7 @@ interface Props {
   appointments: Appointment[];
   technicians?: never; // kept for API compat
   selectedTech: string;
+  selectedBay: string;
   currentDate: Date;
   onViewDetail: (apt: Appointment) => void;
 }
@@ -39,7 +40,7 @@ function formatCompactDay(d: Date) {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-export default function TimelineView({ appointments, selectedTech, currentDate, onViewDetail }: Props) {
+export default function TimelineView({ appointments, selectedTech, selectedBay, currentDate, onViewDetail }: Props) {
   // Show ALL confirmed appointments, no date range filter
   const filtered = useMemo(() => {
     let list = appointments.filter(a => {
@@ -49,10 +50,13 @@ export default function TimelineView({ appointments, selectedTech, currentDate, 
     if (selectedTech) {
       list = list.filter(a => a.technician_id === selectedTech);
     }
+    if (selectedBay) {
+      list = list.filter(a => a.service_bay_id === selectedBay);
+    }
     // Sort by start time
     list.sort((a, b) => new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime());
     return list;
-  }, [appointments, selectedTech]);
+  }, [appointments, selectedTech, selectedBay]);
 
   // Group by date
   const days = useMemo(() => {

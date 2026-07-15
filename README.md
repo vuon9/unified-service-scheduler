@@ -1,8 +1,8 @@
 # Unified Service Scheduler
 
-**Keyloop Senior Software Engineer — Technical Coding Challenge**
+**Unified Service Scheduler Senior Software Engineer — Technical Coding Challenge**
 
-A backend service for scheduling vehicle service appointments with real-time availability checking. Built with Go, chi router, sqlx, and SQLite.
+A backend service for scheduling vehicle service appointments with real-time availability checking (technician + bay). Built with Go, chi router, sqlx, and SQLite.
 
 ## Quick Start
 
@@ -10,10 +10,10 @@ A backend service for scheduling vehicle service appointments with real-time ava
 # Build
 go build ./...
 
-# Run (starts on :8080 with SQLite DB at ./scheduler.db)
+# Run (starts on :8080, SQLite at ./scheduler.db)
 go run ./cmd/server/
 
-# Run tests
+# Run all tests
 go test ./... -v -count=1
 ```
 
@@ -25,8 +25,8 @@ docker compose up --build
 
 | Service | Port | Notes |
 |---------|------|-------|
-| Backend (Go) | 8080 | SQLite DB persisted in Docker volume `db_data` |
-| Frontend (React/Vite) | 5173 | Dev server with HMR, calls backend at localhost:8080 |
+| Backend (Go) | 8080 | SQLite persisted in `db_data` volume |
+| Frontend (React/Vite) | 5173 | Dev server with HMR, proxies to backend |
 
 ## API Endpoints
 
@@ -34,78 +34,102 @@ docker compose up --build
 |--------|------|-------------|
 | GET | `/health` | Health check |
 | POST | `/api/v1/appointments` | Book an appointment |
-| GET | `/api/v1/appointments` | List appointments |
+| GET | `/api/v1/appointments` | List appointments (query: `customer_id`, `dealership_id`, `from`, `to`, `status`) |
 | GET | `/api/v1/appointments/{id}` | Get appointment details |
 | POST | `/api/v1/appointments/{id}/cancel` | Cancel an appointment |
 | POST | `/api/v1/availability` | Check resource availability |
 | GET | `/api/v1/vehicles` | List all vehicles |
 | GET | `/api/v1/service-types` | List all service types |
+| GET | `/api/v1/technicians` | List all technicians |
+| GET | `/api/v1/service-bays` | List all service bays |
 
-## Project Structure
+## Architecture
 
 ```
 ├── cmd/server/main.go              # Entry point
 ├── internal/
-│   ├── handler/                     # HTTP handlers
-│   │   ├── appointment.go           # Appointment CRUD handlers
-│   │   ├── availability.go          # Availability + reference data handlers
-│   │   ├── middleware.go            # Request ID middleware
-│   │   └── router.go               # Chi router configuration
-│   ├── service/                     # Business logic
-│   │   ├── appointment.go           # Booking, cancellation, listing
-│   │   ├── availability.go          # Availability check logic
-│   ├── repository/                  # Database access layer
-│   │   ├── db.go                   # DB connection, migrations, DBTX interface
-│   │   ├── appointment.go          # Appointment CRUD queries
-│   │   ├── dealership.go           # Vehicle queries
-│   │   └── technician.go           # Technician, bay, service type queries
-│   └── model/models.go             # Domain structs and DTOs
-├── migrations/                      # SQL migration files
-├── features/                        # Gherkin feature files (godog)
-└── web/                             # React frontend (demo)
+│   ├── handler/                    # HTTP handlers (chi router)
+│   ├── service/                    # Business logic (booking, availability, cancellation)
+│   ├── repository/                 # Database access (sqlx, SQLite)
+│   └── model/                      # Domain structs and DTOs
+├── migrations/                     # SQL migration files
+├── features/                       # Gherkin integration tests (godog)
+└── web/                            # React frontend demo
 ```
 
-## AI Collaboration Narrative
+### Key patterns
 
-### High-Level Strategy
+- **Layered architecture**: handler → service → repository, with model shared across layers.
+- **Dependency injection**: handler and service receive their dependencies via constructors.
+- **Injected clock**: Service uses `timeNow func() time.Time` (defaults to `time.Now`) — override with `NewWithClock()` for deterministic test timings.
+- **Half-open interval overlap**: overlap formula `start_a < end_b AND end_a > start_b`; adjacent times (10:00–11:00 and 11:00–12:00) do not conflict.
+- **Auto-assignment**: system picks the first available qualified technician and first available bay for each booking.
+- **WAL mode + immediate transactions**: SQLite configured for concurrent read/write safety.
 
-This project was built iteratively using AI-assisted development with **OpenCode** and **Claude Code** as pair-programming agents. The approach followed a structured workflow:
+## Tests
 
-1. **Design-first specification**: A detailed `DESIGN.md` was authored upfront covering architecture, data flow, API contracts, data model, and risk mitigations. This served as the single source of truth that both human and AI referenced throughout development.
+| Type | Location | What |
+|------|----------|------|
+| Go unit tests | `internal/service/` | Booking logic, ownership validation, time validation, resource contention, overlap edge cases |
+| Gherkin (godog) | `features/appointments.feature` | 24 scenarios: happy path, conflict, boundary, validation, race condition (T-01 to T-24) |
 
-2. **Repository scaffolding**: AI generated the initial project skeleton — Go module, chi router setup, SQLite connection with WAL mode, migration runner, and the full database schema — from the design doc. Every generated block was reviewed via `git diff` before committing.
+Tests use an in-memory SQLite database with seed data. The clock is frozen to `2026-07-01` during godog tests so hardcoded scenario dates are always in the future.
 
-3. **Layer-by-layer implementation**: Each architectural layer (model → repository → service → handler → router) was built bottom-up. AI generated each layer's code from the API contract in the design doc, then the human verified correctness, naming conventions, and error handling patterns.
+```bash
+# Full suite
+go test ./... -count=1
 
-4. **Service layer testing**: The service layer was tested with both unit tests (covering booking happy path, ownership validation, time validation, resource contention) and property-based overlap tests (adjacent times, one-minute edges, wraparound, exact match). The `testify` assertion library was added to `go.mod` for this.
+# With race detection
+go test -race ./... -count=1
 
-### Process for Verifying AI Output
+# Just integration tests
+go test ./features/steps/ -v -count=1
+```
 
-- **Every AI-generated diff was reviewed** before being committed. Changes were examined for correctness, consistency with existing patterns, and proper error propagation.
-- **All SQL queries** were manually checked against the schema to ensure correct column names, JOIN conditions, and parameter ordering.
-- **Service logic boundaries** were verified: the overlap detection formula (`start_a < end_b AND end_a > start_b`) was confirmed correct for half-open intervals and property-tested with edge cases.
-- **Integration tests** (via godog with Gherkin `.feature` files) run the API through real HTTP requests against an in-memory SQLite database, covering end-to-end booking flows.
-- **cURL smoke tests** were run after each endpoint was added to verify happy paths and error responses before moving to the next feature.
+## Booking flow
 
-### How Final Quality Was Ensured
+1. Validate: dealership exists → customer owns vehicle → service type exists → start time is in the future
+2. Compute end time = start + service type duration
+3. Find qualified technicians and free bays for the time window
+4. If all resources available → create appointment with first available tech + bay
+5. If no qualified tech or no free bay → return conflict reason
 
-| Quality Gate | Mechanism |
-|---|---|
-| **Compilation** | `go build ./...` must pass before any commit |
-| **Unit tests** | `go test ./internal/service/ -v -count=1` covers booking logic (9 tests) |
-| **Integration tests** | godog Gherkin tests run the full HTTP stack against real SQLite |
-| **Race detection** | `go test -race ./...` catches concurrent access issues |
-| **Code review** | Every AI commit was diff-reviewed by the human author |
-| **Design consistency** | AI output was validated against the DESIGN.md contracts and updated to match patterns (e.g., error response format, JSON field naming) |
 
-### AI Tools Used
+## Database
+SQLite with WAL mode. Schema includes migrations in `migrations/` with version tracking. Seed data (2 dealerships, 3 customers, 3 vehicles, 4 service types, 5 technicians, 5 bays) is bootstrapped in migration 002; appointment seeds in migration 003.
 
-- **OpenCode** — Primary AI coding agent for Go boilerplate generation, handler scaffolding, repository layer, and test generation
-- **Claude Code** — Secondary agent for complex service logic, overlap math verification, and edge case analysis
-- **Review via AI** — AI was also used to review its own output for consistency against the design spec before human final review
+## Design docs
 
-### Lessons Learned
+- [SPECS.md](./SPECS.md) — requirements, entities, business rules, in/out of scope
+- [DESIGN.md](./DESIGN.md) — architecture, data model, API contracts
+- [FRONTEND_DESIGN.md](./FRONTEND_DESIGN.md) — frontend UI design
 
-- **Providing exact code patterns** from existing files dramatically improved AI output quality — showing rather than describing existing handler patterns reduced rework.
-- **In-memory SQLite for tests** required careful seed data construction matching the schema column-by-column (nullable fields like `vin` and `description` needed explicit values because the model uses plain `string` not `*string`).
-- **Iterative test debugging**: initial test failures from NULL-to-string conversion errors were quickly resolved by aligning test seed data with the schema's non-NULL expectations, demonstrating the value of tight AI-human feedback loops.
+## cURL examples
+
+```bash
+# Book an appointment
+curl -s -X POST http://localhost:8080/api/v1/appointments \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "customer_id": "c1",
+    "vehicle_id": "v1",
+    "dealership_id": "d1",
+    "service_type_id": "s1",
+    "scheduled_start": "2030-06-15T09:00:00Z"
+  }' | jq .
+
+# List appointments
+curl -s 'http://localhost:8080/api/v1/appointments?customer_id=c1' | jq .
+
+# Cancel
+curl -s -X POST http://localhost:8080/api/v1/appointments/{id}/cancel | jq .
+
+# Check availability
+curl -s -X POST http://localhost:8080/api/v1/availability \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "dealership_id": "d1",
+    "service_type_id": "s1",
+    "scheduled_start": "2030-06-15T09:00:00Z"
+  }' | jq .
+```

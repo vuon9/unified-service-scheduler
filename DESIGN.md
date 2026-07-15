@@ -1,6 +1,6 @@
 # DESIGN DOC -- Unified Service Scheduler (Scenario A)
 
-> Keyloop Senior Software Engineer -- Technical Coding Challenge
+> Unified Service Scheduler Senior Software Engineer -- Technical Coding Challenge
 > Author: Vuong Bui
 > Date: 2026-07-10 (v2 -- reflects actual implementation)
 > Primary: Backend (Go) | Demo UI: React
@@ -49,9 +49,13 @@ docker compose up --build
 | **React UI** | Full calendar UI with Timeline/Week/Month views, responsive mobile layout, booking form with auto-check. |
 | **chi Router** | HTTP routing, middleware (logging, recovery, CORS, request ID). Also serves `/debug/vars` metrics. |
 | **Handler Layer** | Request parsing, validation, response formatting. Thin -- delegates to service. |
-| **Service Layer** | All business logic: conflict detection (vehicle + tech + bay), auto-assignment, cancellation. Exposes `expvar` metrics. |
+| **Service Layer** | All business logic: conflict detection (vehicle + tech + bay), auto-assignment, cancellation. Exposes `expvar` metrics. Accepts injectable `timeNow` clock for testability. |
 | **Repository Layer** | Database access. Raw SQL with `database/sql` + sqlx. Uses custom migration runner. |
 | **SQLite** | Single-file database. WAL mode + `_txlock=immediate` for write safety. Schema is Postgres-compatible. |
+
+### Injected Clock
+
+The Service layer accepts a `timeNow func() time.Time` via its constructor (`NewWithClock`). In production this defaults to `time.Now`; tests freeze time at `2026-07-01` so hardcoded scenario dates always pass future-time validation regardless of when tests run.
 
 ---
 
@@ -70,6 +74,7 @@ Handler: parse & validate request body
 Service.Book(req BookRequest):
   1. Normalize scheduled_start to UTC
   2. Past-time check (reject if in the past)
+  2b. Validate dealership exists
   3. Load vehicle -> verify customer ownership
   4. Load service_type -> get duration, compute scheduled_end
   5. Load qualified technicians for this service_type at this dealership
@@ -113,7 +118,7 @@ Service.Cancel(id):
   2. UPDATE status = 'cancelled'
   3. Return updated appointment
   |-- not found       --> 404
-  |-- already cancelled --> 409 { reason: "already_cancelled" }
+  |-- already cancelled --> 409 { reason: "appointment_already_cancelled" }
 ```
 
 ### List Appointments
@@ -134,7 +139,7 @@ Repository.List(filter):
 
 | Layer | Technology | Justification |
 |-------|-----------|---------------|
-| Language | **Go 1.22+** | Fast, simple concurrency. Single binary deployment. |
+| Language | **Go 1.23** | Fast, simple concurrency. Single binary deployment. |
 | HTTP Router | **chi v5** | Idiomatic, stdlib-compatible, built-in middleware. |
 | Database | **SQLite 3 (mattn/go-sqlite3)** | Zero setup, single file. WAL mode + `_txlock=immediate`. |
 | SQL toolkit | **sqlx** | Struct scanning, reduces boilerplate. |
@@ -289,7 +294,30 @@ Response 409:
 | `no_qualified_technician` | 409 | All qualified technicians are busy |
 | `no_service_bay_available` | 409 | All service bays are occupied |
 | `past_start_time` | 400 | Scheduled start is in the past |
-| `already_cancelled` | 409 | Appointment is already in cancelled state |
+| `appointment_already_cancelled` | 409 | Appointment is already in cancelled state |
+
+### 6.1b Get Appointment
+
+```
+GET /appointments/{id}
+
+Response 200:
+{
+  "id": "apt-abc123",
+  "customer_id": "c1",
+  "vehicle_id": "v1",
+  "dealership_id": "d1",
+  "service_type_id": "s1",
+  "technician_id": "t1",
+  "service_bay_id": "b1",
+  "scheduled_start": "2026-07-15T02:00:00Z",
+  "scheduled_end": "2026-07-15T03:00:00Z",
+  "status": "confirmed",
+  "created_at": "2026-07-15T01:00:00Z"
+}
+
+Response 404: { "error": "appointment_not_found", "message": "Appointment not found" }
+```
 
 ### 6.2 Cancel Appointment
 
@@ -303,7 +331,7 @@ Response 200:
 }
 
 Response 404: { "error": "appointment_not_found", "message": "Appointment not found" }
-Response 409: { "error": "already_cancelled", "message": "Appointment is already cancelled" }
+Response 409: { "error": "appointment_already_cancelled", "message": "Appointment is already cancelled" }
 ```
 
 ### 6.3 List Appointments
@@ -372,7 +400,7 @@ GET /debug/vars   → expvar JSON (bookings_total, bookings_conflicts, vehicle_c
 ## 7. Project Structure
 
 ```
-keyloop-scheduler/
+unified-service-scheduler/
 ├── cmd/server/main.go              # Entry point
 ├── internal/
 │   ├── handler/                    # HTTP handlers
@@ -434,6 +462,7 @@ keyloop-scheduler/
 | IMMEDIATE transaction lock | Prevents race conditions in concurrent booking (`_txlock=immediate` in DSN). |
 | Custom migration runner | Handles semicolons inside trigger bodies. Skips seed data in test DB. |
 | Separate availability endpoint | Allows UI to show real-time preview before user commits. |
+| Injected clock (`timeNow` + `NewWithClock`) | Enables deterministic tests. Clock frozen at `2026-07-01` during godog tests so hardcoded future dates always pass time validation. |
 | Auto-pick first available | MVP scope. Smart scheduling is post-MVP. |
 | No authentication | Explicitly out of scope. |
 | WAL mode for SQLite | Concurrent reads during writes, safer for availability checks. |
@@ -465,8 +494,10 @@ keyloop-scheduler/
 
 T-01 to T-06: Happy path booking, ownership validation, time validation
 T-07 to T-12: Resource conflicts (bay, tech, partial overlap)
-T-13 to T-18: Adjacent/edge-case times, boundary overlap
-T-19 to T-24: Listing, filtering, cancellation, concurrent booking
+T-13 to T-15: Boundary edge cases (adjacent, one-minute, partial overlap)
+T-16 to T-20: Validation (past_start_time, vehicle/service_type/dealership not found, ownership)
+T-21 to T-23: Cancellation (non-existent, already cancelled, confirmed)
+T-24: Race condition (concurrent booking)
 
 ---
 

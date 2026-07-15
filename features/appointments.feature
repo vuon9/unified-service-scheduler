@@ -1,5 +1,13 @@
 Feature: Unified Service Scheduler
 
+  # All dates in this file are relative to a frozen clock. Tests inject
+  # a Service with timeNow fixed at 2026-07-01T00:00:00Z, so these hardcoded
+  # dates are always in the future regardless of when the test runs.
+  #
+  # Seed data: 2 dealerships (d1 Saigon, d2 Ha Noi), 3 customers (c1/c2/c3), 3 vehicles (v1/v2/v3),
+  # 4 service types (s1=Oil 60m, s2=Brake 120m, s3=Engine 90m, s4=Tire Rotation 30m),
+  # 5 techs (d1: t1=s1/s2/s4, t2=s1/s3, t3=s2/s3 | d2: t4=s1/s2/s4, t5=s1/s3), 5 bays (b11/b12/b13 at d1, b21/b22 at d2)
+
   Background:
     Given the seed data is loaded
 
@@ -53,14 +61,15 @@ Feature: Unified Service Scheduler
   # ============================================================
 
   Scenario: T-07 - Same time slot, system auto-selects other free bay
-    Given an appointment exists for customer "c1" with service "s1" for vehicle "v1" at dealership "d1" from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00" using bay "b1"
+    Given an appointment exists for customer "c1" with service "s1" for vehicle "v1" at dealership "d1" from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00" using bay "b11"
     When customer "c2" books service "s1" for vehicle "v2" at dealership "d1" starting "2026-07-15T09:00:00+07:00"
     Then the booking status should be "confirmed"
-    And the assigned service bay should be "b2"
+    And the assigned service bay should be "b12"
 
   Scenario: T-08 - All bays occupied, no availability
-    Given service bay "b1" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
-    And service bay "b2" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    Given service bay "b11" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    And service bay "b12" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    And service bay "b13" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
     When customer "c1" books service "s1" for vehicle "v1" at dealership "d1" starting "2026-07-15T09:00:00+07:00"
     Then the booking should fail with reason "no_service_bay_available"
 
@@ -84,8 +93,8 @@ Feature: Unified Service Scheduler
     And technician "t2" should not be assigned
 
   Scenario: T-12 - Bay free but only qualified technician occupied
-    Given an appointment exists for customer "c1" with service "s3" for vehicle "v1" at dealership "d1" from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:30:00+07:00" using technician "t2"
-    When customer "c2" books service "s3" for vehicle "v2" at dealership "d1" starting "2026-07-15T10:00:00+07:00"
+    Given an appointment exists for customer "c1" with service "s4" for vehicle "v1" at dealership "d1" from "2026-07-15T09:00:00+07:00" to "2026-07-15T09:30:00+07:00" using technician "t1"
+    When customer "c2" books service "s4" for vehicle "v2" at dealership "d1" starting "2026-07-15T09:00:00+07:00"
     Then the booking should fail with reason "no_qualified_technician"
 
   # ============================================================
@@ -95,24 +104,24 @@ Feature: Unified Service Scheduler
   Scenario: T-13 - Adjacent appointments with no overlap (non-inclusive end)
     Given technician "t1" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
     And technician "t2" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
-    And service bay "b1" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
-    And service bay "b2" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    And service bay "b11" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    And service bay "b12" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
     When customer "c1" books service "s1" for vehicle "v1" at dealership "d1" starting "2026-07-15T10:00:00+07:00"
     Then the booking status should be "confirmed"
 
   Scenario: T-14 - One minute overlap causes conflict
     Given technician "t1" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
     And technician "t2" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
-    And service bay "b1" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
-    And service bay "b2" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    And service bay "b11" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
+    And service bay "b12" is occupied from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
     When customer "c1" books service "s1" for vehicle "v1" at dealership "d1" starting "2026-07-15T09:59:00+07:00"
     Then the booking should fail with reason "no_qualified_technician"
 
   Scenario: T-15 - Partial overlap with existing appointment
     Given technician "t1" is occupied from "2026-07-15T10:00:00+07:00" to "2026-07-15T12:00:00+07:00"
     And technician "t2" is occupied from "2026-07-15T10:00:00+07:00" to "2026-07-15T12:00:00+07:00"
-    And service bay "b1" is occupied from "2026-07-15T10:00:00+07:00" to "2026-07-15T12:00:00+07:00"
-    And service bay "b2" is occupied from "2026-07-15T10:00:00+07:00" to "2026-07-15T12:00:00+07:00"
+    And service bay "b11" is occupied from "2026-07-15T10:00:00+07:00" to "2026-07-15T12:00:00+07:00"
+    And service bay "b12" is occupied from "2026-07-15T10:00:00+07:00" to "2026-07-15T12:00:00+07:00"
     When customer "c1" books service "s1" for vehicle "v1" at dealership "d1" starting "2026-07-15T11:00:00+07:00"
     Then the booking should fail with reason "no_qualified_technician"
 
@@ -126,11 +135,11 @@ Feature: Unified Service Scheduler
     Then the booking should fail with reason "<reason>"
 
     Examples:
-      | customer | service | vehicle | dealership | start                      | reason                       |
-      | c1       | s1      | v1      | d1         | 2020-01-01T09:00:00+07:00 | past_start_time              |
-      | c1       | s1      | vx      | d1         | 2026-07-15T09:00:00+07:00 | vehicle_not_found            |
-      | c1       | sx      | v1      | d1         | 2026-07-15T09:00:00+07:00 | service_type_not_found       |
-      | c1       | s1      | v1      | dx         | 2026-07-15T09:00:00+07:00 | dealership_not_found         |
+      | customer | service | vehicle | dealership | start                     | reason                 |
+      | c1       | s1      | v1      | d1         | 2020-01-01T09:00:00+07:00 | past_start_time        |
+      | c1       | s1      | vx      | d1         | 2026-07-15T09:00:00+07:00 | vehicle_not_found      |
+      | c1       | sx      | v1      | d1         | 2026-07-15T09:00:00+07:00 | service_type_not_found |
+      | c1       | s1      | v1      | dx         | 2026-07-15T09:00:00+07:00 | dealership_not_found   |
 
   Scenario: T-17 - Customer does not own the vehicle
     Given customer "c1" has vehicle "v1"
@@ -156,9 +165,12 @@ Feature: Unified Service Scheduler
   # ============================================================
   # Race Condition
   # ============================================================
-
-  # NOTE: This scenario requires parallel execution in the step definition.
-  # The When step must spawn two concurrent booking requests and collect both results.
+  #
+  # NOTE: True concurrent booking is validated by the unit test
+  # TestBookAppointment_RaceCondition in internal/service/appointment_test.go,
+  # which fires two goroutines simultaneously via a sync barrier.
+  # This HTTP-level scenario runs sequentially (httptest.Server serializes
+  # in-process) and serves as a documentation placeholder.
   Scenario: T-24 - Two customers book same resources concurrently
     Given only 1 qualified technician and 1 service bay are free from "2026-07-15T09:00:00+07:00" to "2026-07-15T10:00:00+07:00"
     When customer "c1" and customer "c2" simultaneously book service "s1" for their vehicles at dealership "d1" starting "2026-07-15T09:00:00+07:00"

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Vehicle, ServiceType, AvailabilityResponse } from '../types';
+import type { Vehicle, ServiceType, AvailabilityResponse, Technician, ServiceBay } from '../types';
 import { fetchVehicles, fetchServiceTypes, checkAvailability, createAppointment } from '../api';
 import styles from './BookingModal.module.css';
 
@@ -24,6 +24,10 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
   const [error, setError] = useState('');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Selected tech/bay from badges
+  const [selectedTechId, setSelectedTechId] = useState('');
+  const [selectedBayId, setSelectedBayId] = useState('');
+
   useEffect(() => {
     Promise.all([fetchVehicles(), fetchServiceTypes()])
       .then(([v, s]) => {
@@ -46,6 +50,8 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
     if (!selectedVehicle || !selectedService || !datetime) {
       setCheckTouched(false);
       setAvailability(null);
+      setSelectedTechId('');
+      setSelectedBayId('');
       return;
     }
     setCheckTouched(true);
@@ -61,6 +67,9 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
           scheduled_start: scheduledStart,
         });
         setAvailability(result);
+        // Auto-select first available
+        setSelectedTechId(result.available_technicians?.[0]?.id ?? '');
+        setSelectedBayId(result.available_bays?.[0]?.id ?? '');
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to check availability';
         setError(message);
@@ -88,6 +97,8 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
         dealership_id: DEFAULT_DEALERSHIP_ID,
         service_type_id: selectedService,
         scheduled_start: scheduledStart,
+        technician_id: selectedTechId || undefined,
+        service_bay_id: selectedBayId || undefined,
         notes: notes || undefined,
       });
       onBooked();
@@ -101,9 +112,37 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
 
   const canBook = availability?.available === true && !booking;
 
-  // Compute the min datetime for the input
   const now = new Date();
   const minDatetime = now.toISOString().slice(0, 16);
+
+  // Badge styles
+  const badgeBase: React.CSSProperties = {
+    display: 'inline-block', padding: '4px 10px', borderRadius: '6px',
+    fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+    border: '2px solid transparent', transition: 'all 0.15s',
+    marginRight: '6px', marginBottom: '4px',
+  };
+
+  const badgeSuggested: React.CSSProperties = {
+    ...badgeBase, borderStyle: 'dashed', borderColor: '#94A3B8',
+    background: '#F8FAFC', color: '#475569',
+  };
+
+  const badgeSelected: React.CSSProperties = {
+    ...badgeBase, borderStyle: 'solid', borderColor: '#2563EB',
+    background: '#EFF6FF', color: '#2563EB', fontWeight: 600,
+  };
+
+  const badgeInactive: React.CSSProperties = {
+    ...badgeBase, borderStyle: 'solid', borderColor: '#E5E7EB',
+    background: '#fff', color: '#6B7280', opacity: 0.7,
+  };
+
+  const rowLabel: React.CSSProperties = {
+    fontSize: '11px', fontWeight: 600, color: '#9CA3AF',
+    textTransform: 'uppercase', letterSpacing: '0.05em',
+    marginBottom: '6px',
+  };
 
   return (
     <div className={styles.overlay} onClick={onClose}>
@@ -161,33 +200,70 @@ export default function BookingModal({ onClose, onBooked }: BookingModalProps) {
             )}
           </div>
 
-          {/* Availability alert */}
+          {/* Availability */}
           {checkTouched && (
-            <div className={`${styles.alert} ${availability?.available ? styles.alertGreen : styles.alertRed}`}>
+            <div style={{ marginTop: '12px' }}>
               {checkingAvail ? (
-                <span className={styles.alertText}>Checking availability...</span>
-              ) : availability === null ? (
-                <span className={styles.alertText}>Complete all fields to check</span>
-              ) : availability.available ? (
-                <div className={styles.alertInner}>
-                  <span className={styles.alertIcon}>✓</span>
-                  <span className={styles.alertText}>Available!</span>
-                  <span className={styles.alertSub}>
-                    {availability.available_technicians?.map(t => t.name).join(', ')} &middot;{' '}
-                    {availability.available_bays?.map(b => b.name).join(', ')}
-                  </span>
+                <div className={`${styles.alert} ${styles.alertGreen}`}>
+                  <span className={styles.alertText}>Checking availability...</span>
+                </div>
+              ) : availability === null ? null : availability.available ? (
+                <div style={{ padding: '10px 0' }}>
+                  {/* Technicians row */}
+                  <div style={rowLabel}>
+                    Technician{availability.available_technicians && availability.available_technicians.length !== 1 ? 's' : ''}
+                  </div>
+                  <div style={{ marginBottom: '12px' }}>
+                    {(availability.available_technicians ?? []).map((t: Technician) => {
+                      const isSelected = selectedTechId === t.id;
+                      const isSuggested = !isSelected && selectedTechId === (availability.available_technicians?.[0]?.id ?? '') && !availability.available_technicians?.some((x, i) => i > 0 && selectedTechId === x.id);
+                      const style = isSelected ? badgeSelected : isSuggested ? badgeSuggested : badgeInactive;
+                      return (
+                        <span
+                          key={t.id}
+                          style={style}
+                          onClick={() => setSelectedTechId(t.id)}
+                        >
+                          {t.name}
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {/* Bays row */}
+                  <div style={rowLabel}>
+                    Service Bay{availability.available_bays && availability.available_bays.length !== 1 ? 's' : ''}
+                  </div>
+                  <div>
+                    {(availability.available_bays ?? []).map((b: ServiceBay) => {
+                      const isSelected = selectedBayId === b.id;
+                      const isSuggested = !isSelected && selectedBayId === (availability.available_bays?.[0]?.id ?? '') && !availability.available_bays?.some((x, i) => i > 0 && selectedBayId === x.id);
+                      const style = isSelected ? badgeSelected : isSuggested ? badgeSuggested : badgeInactive;
+                      return (
+                        <span
+                          key={b.id}
+                          style={style}
+                          onClick={() => setSelectedBayId(b.id)}
+                        >
+                          {b.name}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
-                <div className={styles.alertInner}>
-                  <span className={styles.alertIcon}>✕</span>
-                  <span className={styles.alertText}>No resources available for this time</span>
+                <div className={`${styles.alert} ${styles.alertRed}`}>
+                  <div className={styles.alertInner}>
+                    <span className={styles.alertIcon}>✕</span>
+                    <span className={styles.alertText}>No resources available for this time</span>
+                  </div>
                 </div>
               )}
             </div>
           )}
 
           {/* Notes */}
-          <div className={styles.field}>
+          <div className={styles.field} style={{ marginTop: '12px' }}>
             <label className={styles.label}>Notes (optional)</label>
             <textarea
               className={styles.textarea}

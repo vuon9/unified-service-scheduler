@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/vuon9/keyloop-scheduler/internal/model"
+	"github.com/vuon9/unified-service-scheduler/internal/model"
 )
 
 // ConflictResult holds the IDs of busy resources after an overlap check.

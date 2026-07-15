@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/vuon9/keyloop-scheduler/internal/model"
-	"github.com/vuon9/keyloop-scheduler/internal/repository"
-	"github.com/vuon9/keyloop-scheduler/internal/service"
+	"github.com/vuon9/unified-service-scheduler/internal/model"
+	"github.com/vuon9/unified-service-scheduler/internal/repository"
+	"github.com/vuon9/unified-service-scheduler/internal/service"
 )
 
 // AvailabilityHandler handles HTTP requests for availability and reference data endpoints.
@@ -39,6 +39,10 @@ func (h *AvailabilityHandler) CheckAvailability(w http.ResponseWriter, r *http.R
 
 	resp, err := h.svc.CheckAvailability(r.Context(), req)
 	if err != nil {
+		if verr, ok := err.(*service.ValidationError); ok {
+			writeError(w, http.StatusBadRequest, verr.Reason, verr.Message)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}

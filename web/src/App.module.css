@@ -133,8 +133,30 @@
   }
 }
 
-/* Mobile: stack layout */
+.filterToggleBtn {
+  display: none;
+}
+
+/* Mobile: show filter toggle */
 @media (max-width: 768px) {
+  .filterToggleBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    background: transparent;
+    color: #6B7280;
+  }
+  .filterToggleBtnActive {
+    background: #E5E7EB;
+    color: #374151;
+  }
   .allLayout {
     flex-direction: column;
     padding: 8px 8px 16px;

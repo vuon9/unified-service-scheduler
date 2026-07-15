@@ -17,10 +17,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/vuon9/keyloop-scheduler/internal/handler"
-	"github.com/vuon9/keyloop-scheduler/internal/model"
-	"github.com/vuon9/keyloop-scheduler/internal/repository"
-	"github.com/vuon9/keyloop-scheduler/internal/service"
+	"github.com/vuon9/unified-service-scheduler/internal/handler"
+	"github.com/vuon9/unified-service-scheduler/internal/model"
+	"github.com/vuon9/unified-service-scheduler/internal/repository"
+	"github.com/vuon9/unified-service-scheduler/internal/service"
+	"github.com/vuon9/unified-service-scheduler/internal/testutil"
 )
 
 // scenarioState holds per-scenario state.
@@ -66,16 +67,18 @@ func InitializeScenario(sctx *godog.ScenarioContext) {
 		}
 		db.SetMaxOpenConns(1)
 
-		// Run migrations - includes both schema and seed data
+		// Run migrations — includes both schema and seed data (skip 003: appointment seeds)
 		migrationsDir := findMigrationsDir()
-		if err := runRawMigrations(db, migrationsDir); err != nil {
+		if err := testutil.RunMigrations(db, migrationsDir, "003"); err != nil {
 			db.Close()
 			return ctx, fmt.Errorf("failed to run migrations: %w", err)
 		}
 
 		// Build the stack
 		repo := &repository.Repository{DB: db}
-		svc := service.New(repo)
+		svc := service.NewWithClock(repo, func() time.Time {
+			return time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+		})
 		router := handler.NewRouter(svc, repo)
 		server := httptest.NewServer(router)
 
@@ -227,166 +230,7 @@ func findMigrationsDir() string {
 		}
 	}
 	// Fallback: absolute from workspace
-	return filepath.Join(os.Getenv("HOME"), "workspace", "keyloop-challenge", "migrations")
-}
-
-func runRawMigrations(db *sqlx.DB, dir string) error {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return fmt.Errorf("read migrations dir: %w", err)
-	}
-
-	// Create schema_migrations table
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
-		version TEXT PRIMARY KEY,
-		applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	)`); err != nil {
-		return fmt.Errorf("schema_migrations: %w", err)
-	}
-
-	for _, entry := range entries {
-		name := entry.Name()
-		if !strings.HasSuffix(name, ".up.sql") {
-			continue
-		}
-		// Skip version 003 (appointment seed data) in test DB
-		version := strings.SplitN(name, "_", 2)[0]
-		if version == "003" {
-			continue
-		}
-
-		var count int
-		db.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version = ?", version).Scan(&count)
-		if count > 0 {
-			continue
-		}
-
-		sqlBytes, err := os.ReadFile(filepath.Join(dir, name))
-		if err != nil {
-			return err
-		}
-
-		tx, err := db.Begin()
-		if err != nil {
-			return err
-		}
-
-		statements := splitSQLStatements(string(sqlBytes))
-		for _, stmt := range statements {
-			stmt = strings.TrimSpace(stmt)
-			if stmt == "" {
-				continue
-			}
-			if _, err := tx.Exec(stmt); err != nil {
-				tx.Rollback()
-				return fmt.Errorf("migration %s: %w\nSQL: %s", version, err, stmt)
-			}
-		}
-
-		if _, err := tx.Exec("INSERT INTO schema_migrations (version) VALUES (?)", version); err != nil {
-			tx.Rollback()
-			return err
-		}
-
-		if err := tx.Commit(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// splitSQLStatements splits a SQL script into individual statements,
-// handling semicolons inside CREATE TRIGGER/VIEW/PROCEDURE blocks.
-func splitSQLStatements(sql string) []string {
-	var statements []string
-	depth := 0
-	current := strings.Builder{}
-
-	for _, line := range strings.Split(sql, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "BEGIN") {
-			depth++
-		} else if strings.HasPrefix(trimmed, "END") {
-			depth--
-		}
-
-		if current.Len() > 0 {
-			current.WriteString("\n")
-		}
-		current.WriteString(line)
-
-		if depth == 0 && strings.Contains(current.String(), ";") {
-			stmt := strings.TrimSpace(current.String())
-			if stmt != "" {
-				statements = append(statements, stmt)
-			}
-			current.Reset()
-		}
-	}
-
-	if remaining := strings.TrimSpace(current.String()); remaining != "" {
-		statements = append(statements, remaining)
-	}
-	return statements
-}
-
-func runSeedData(db *sqlx.DB) error {
-	seedSQL := `
-	INSERT INTO dealerships (id, name, address, opening_hours) VALUES
-	('d1', 'Saigon Auto', '123 Nguyen Hue, District 1, Ho Chi Minh City', '{"mon":"08:00-17:00"}');
-
-	INSERT INTO customers (id, name, email, phone) VALUES
-	('c1', 'Anh Tuan', 'anhtuan@example.com', '0901234567');
-	INSERT INTO customers (id, name, email, phone) VALUES
-	('c2', 'Chi Lan', 'chilan@example.com', '0907654321');
-
-	INSERT INTO vehicles (id, customer_id, vin, make, model, year) VALUES
-	('v1', 'c1', 'VIN-TOYOTA-CAMRY-2023', 'Toyota', 'Camry', 2023);
-	INSERT INTO vehicles (id, customer_id, vin, make, model, year) VALUES
-	('v2', 'c2', 'VIN-HONDA-CIVIC-2022', 'Honda', 'Civic', 2022);
-
-	INSERT INTO service_types (id, name, duration_minutes, description) VALUES
-	('s1', 'Oil Change', 60, 'Full synthetic oil change');
-	INSERT INTO service_types (id, name, duration_minutes, description) VALUES
-	('s2', 'Brake Replacement', 120, 'Front and rear brake pad replacement');
-	INSERT INTO service_types (id, name, duration_minutes, description) VALUES
-	('s3', 'Engine Diagnostic', 90, 'Comprehensive engine diagnostic scan');
-
-	INSERT INTO technicians (id, dealership_id, name) VALUES
-	('t1', 'd1', 'Minh');
-	INSERT INTO technicians (id, dealership_id, name) VALUES
-	('t2', 'd1', 'Hai');
-	INSERT INTO technicians (id, dealership_id, name) VALUES
-	('t3', 'd1', 'Nam');
-
-	INSERT INTO technician_qualifications (technician_id, service_type_id) VALUES
-	('t1', 's1');
-	INSERT INTO technician_qualifications (technician_id, service_type_id) VALUES
-	('t1', 's2');
-	INSERT INTO technician_qualifications (technician_id, service_type_id) VALUES
-	('t2', 's1');
-	INSERT INTO technician_qualifications (technician_id, service_type_id) VALUES
-	('t2', 's3');
-	INSERT INTO technician_qualifications (technician_id, service_type_id) VALUES
-	('t3', 's2');
-
-	INSERT INTO service_bays (id, dealership_id, name) VALUES
-	('b1', 'd1', 'Bay 1');
-	INSERT INTO service_bays (id, dealership_id, name) VALUES
-	('b2', 'd1', 'Bay 2');
-	`
-	statements := strings.Split(seedSQL, ";")
-	for _, stmt := range statements {
-		stmt = strings.TrimSpace(stmt)
-		if stmt == "" {
-			continue
-		}
-		if _, err := db.Exec(stmt); err != nil {
-			return fmt.Errorf("seed: %w\nSQL: %s", err, stmt)
-		}
-	}
-	return nil
+	return filepath.Join(os.Getenv("HOME"), "workspace", "unified-service-scheduler", "migrations")
 }
 
 func (s *scenarioState) doRequest(method, url string, body interface{}) error {
@@ -600,7 +444,7 @@ func (s *scenarioState) appointmentDoesNotExist(apptID string) error {
 func (s *scenarioState) appointmentIsAlreadyCancelled(apptID string) error {
 	// Insert a cancelled appointment
 	_, err := s.db.Exec(`INSERT INTO appointments (id, customer_id, vehicle_id, dealership_id, service_type_id, technician_id, service_bay_id, scheduled_start, scheduled_end, status, created_at)
-		VALUES (?, 'c1', 'v1', 'd1', 's1', 't1', 'b1', '2026-07-15T09:00:00+07:00', '2026-07-15T10:00:00+07:00', 'cancelled', ?)`, apptID, time.Now())
+		VALUES (?, 'c1', 'v1', 'd1', 's1', 't1', 'b11', '2026-07-15T09:00:00+07:00', '2026-07-15T10:00:00+07:00', 'cancelled', ?)`, apptID, time.Now())
 	return err
 }
 
@@ -608,7 +452,7 @@ func (s *scenarioState) anAppointmentWithIDAndStatusExists(apptID, status string
 	start, _ := parseTime("2026-07-15T09:00:00+07:00")
 	end, _ := parseTime("2026-07-15T10:00:00+07:00")
 	_, err := s.db.Exec(`INSERT INTO appointments (id, customer_id, vehicle_id, dealership_id, service_type_id, technician_id, service_bay_id, scheduled_start, scheduled_end, status, created_at)
-		VALUES (?, 'c1', 'v1', 'd1', 's1', 't1', 'b1', ?, ?, ?, ?)`, apptID, start, end, status, time.Now())
+		VALUES (?, 'c1', 'v1', 'd1', 's1', 't1', 'b11', ?, ?, ?, ?)`, apptID, start, end, status, time.Now())
 	return err
 }
 
@@ -624,11 +468,11 @@ func (s *scenarioState) onlyNQualifiedTechnicianAndNBayFree(techCount, bayCount 
 
 	// Insert a dummy vehicle so setup doesn't trigger vehicle_already_booked for c1/v1 or c2/v2
 	s.db.Exec(`INSERT OR IGNORE INTO vehicles (id, customer_id, vin, make, model, year) VALUES ('v-dummy', 'c1', 'VIN-DUMMY', 'Dummy', 'Vehicle', 2026)`)
-	_, err = s.insertAppointmentRaw("c1", "s1", "v-dummy", "d1", "t2", "b1", start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339), "confirmed")
+	_, err = s.insertAppointmentRaw("c1", "s1", "v-dummy", "d1", "t2", "b11", start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339), "confirmed")
 	if err != nil {
 		return err
 	}
-	// Only occupied t2 + b1 — t1 and b2 remain free
+	// Only occupied t2 + b11 — t1 and b12 remain free
 	s.concurrentResults = nil
 	return nil
 }

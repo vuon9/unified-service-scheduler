@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vuon9/keyloop-scheduler/internal/model"
+	"github.com/vuon9/unified-service-scheduler/internal/model"
 )
 
 // CheckAvailability checks whether there are available technicians and service bays
@@ -13,6 +13,14 @@ import (
 func (s *Service) CheckAvailability(ctx context.Context, req model.AvailabilityRequest) (*model.AvailabilityResponse, error) {
 	// Normalize to UTC so SQLite string comparison works correctly
 	req.ScheduledStart = req.ScheduledStart.UTC()
+
+	// Reject past start times — same as booking
+	if req.ScheduledStart.Before(s.timeNow()) {
+		return nil, &ValidationError{
+			Reason:  model.ErrPastStartTime,
+			Message: "scheduled start time must be in the future",
+		}
+	}
 
 	// Load service type for duration
 	svcType, err := s.repo.GetServiceType(ctx, s.repo.DB, req.ServiceTypeID)

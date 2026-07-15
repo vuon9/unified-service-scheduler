@@ -117,8 +117,6 @@
 /* Normalize datetime input in Safari — native picker icons add visual noise */
 input[type="datetime-local"] {
   line-height: 1.5;
-  display: inline-flex;
-  align-items: center;
 }
 
 input[type="datetime-local"]::-webkit-datetime-edit {

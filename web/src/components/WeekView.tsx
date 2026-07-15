@@ -1,17 +1,19 @@
 import type { Appointment, Technician } from '../types';
+import { toDateKey } from '../dates';
 
 interface Props {
   appointments: Appointment[];
   technicians: Technician[];
   selectedTech: string;
+  selectedBay: string;
   currentDate: Date;
   onViewDetail: (apt: Appointment) => void;
 }
 
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const COLORS = ['#2563EB', '#16A34A', '#9333EA', '#D97706', '#DC2626', '#0891B2'];
 
-export default function WeekView({ appointments, technicians, selectedTech, currentDate, onViewDetail }: Props) {
-  // Compute Mon-Sun of the week containing currentDate
+export default function WeekView({ appointments, technicians, selectedTech, selectedBay, currentDate, onViewDetail }: Props) {
   const weekStart = new Date(currentDate);
   const day = weekStart.getDay();
   const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1); // Start on Monday
@@ -34,25 +36,27 @@ export default function WeekView({ appointments, technicians, selectedTech, curr
   const weekAppts = appointments.filter(a => {
     if (a.status !== 'confirmed') return false;
     const s = new Date(a.scheduled_start);
-    return s >= weekStart && s <= weekEnd;
+    if (!(s >= weekStart && s <= weekEnd)) return false;
+    if (selectedBay && a.service_bay_id !== selectedBay) return false;
+    return true;
   });
 
   const byDay: Record<string, Appointment[]> = {};
-  days.forEach(d => { byDay[d.toISOString().split('T')[0]] = []; });
+  days.forEach(d => { byDay[toDateKey(d)] = []; });
   weekAppts.forEach(a => {
-    const key = new Date(a.scheduled_start).toISOString().split('T')[0];
+    const key = toDateKey(a.scheduled_start);
     if (byDay[key]) byDay[key].push(a);
   });
 
   const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = toDateKey(now);
 
   return (
     <div style={{ display: 'inline-block', minWidth: '100%', background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
       {/* Day headers */}
       <div style={{ display: 'inline-grid', gridTemplateColumns: 'repeat(7, minmax(110px, 1fr))', borderBottom: '2px solid #E5E7EB', background: '#F9FAFB', minWidth: '100%' }}>
         {days.map((d, i) => {
-          const dateStr = d.toISOString().split('T')[0];
+          const dateStr = toDateKey(d);
           const isToday = dateStr === todayStr;
           return (
             <div key={i} style={{
@@ -81,7 +85,7 @@ export default function WeekView({ appointments, technicians, selectedTech, curr
       {/* Appointments grid */}
       <div style={{ display: 'inline-grid', gridTemplateColumns: 'repeat(7, minmax(110px, 1fr))', minHeight: '400px', minWidth: '100%' }}>
         {days.map((d, i) => {
-          const dateStr = d.toISOString().split('T')[0];
+          const dateStr = toDateKey(d);
           const dayApts = byDay[dateStr] || [];
 
           // Group by technician

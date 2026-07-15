@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vuon9/keyloop-scheduler/internal/model"
+	"github.com/vuon9/unified-service-scheduler/internal/model"
 )
 
 // GetQualifiedTechnicians returns all technicians at a dealership who are qualified

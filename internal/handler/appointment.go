@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/vuon9/keyloop-scheduler/internal/model"
-	"github.com/vuon9/keyloop-scheduler/internal/service"
+	"github.com/vuon9/unified-service-scheduler/internal/model"
+	"github.com/vuon9/unified-service-scheduler/internal/service"
 )
 
 // AppointmentHandler handles HTTP requests for appointment endpoints.

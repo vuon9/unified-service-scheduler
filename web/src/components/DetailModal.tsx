@@ -72,6 +72,14 @@ export default function DetailModal({ appointment, onClose, onCancelled }: Detai
             <DetailRow label="Technician" value={appointment.technician_name ?? '-'} />
             <DetailRow label="Bay" value={appointment.service_bay_name ?? '-'} />
             <DetailRow label="Booked at" value={createdAtStr} />
+            {appointment.notes && appointment.notes.trim() && (
+              <div className={styles.row} style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span className={styles.label}>Notes</span>
+                <span className={styles.value} style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, marginTop: '2px' }}>
+                  {appointment.notes}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

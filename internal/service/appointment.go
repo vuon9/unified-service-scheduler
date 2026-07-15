@@ -8,18 +8,24 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/vuon9/keyloop-scheduler/internal/model"
-	"github.com/vuon9/keyloop-scheduler/internal/repository"
+	"github.com/vuon9/unified-service-scheduler/internal/model"
+	"github.com/vuon9/unified-service-scheduler/internal/repository"
 )
 
 // Service handles all business logic for appointment scheduling.
 type Service struct {
-	repo *repository.Repository
+	repo    *repository.Repository
+	timeNow func() time.Time
 }
 
-// New creates a new Service.
+// New creates a new Service with real time.
 func New(repo *repository.Repository) *Service {
-	return &Service{repo: repo}
+	return &Service{repo: repo, timeNow: time.Now}
+}
+
+// NewWithClock creates a Service with a custom clock (for tests).
+func NewWithClock(repo *repository.Repository, now func() time.Time) *Service {
+	return &Service{repo: repo, timeNow: now}
 }
 
 // Book attempts to book an appointment, checking real-time availability
@@ -29,7 +35,7 @@ func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*
 	req.ScheduledStart = req.ScheduledStart.UTC()
 
 	// 0. Check past start time (cheapest validation first, no DB needed)
-	if req.ScheduledStart.Before(time.Now()) {
+	if req.ScheduledStart.Before(s.timeNow()) {
 		return nil, &ValidationError{
 			Reason:  model.ErrPastStartTime,
 			Message: "scheduled start time must be in the future",
@@ -180,14 +186,53 @@ func (s *Service) Book(ctx context.Context, req model.BookAppointmentRequest) (*
 		}
 	}
 
-	// 8. Auto-pick first available tech + first available bay
+	// 8. Pick tech + bay — honor explicit selection if provided, else auto-pick first
+	techID := req.TechnicianID
+	if techID == "" {
+		techID = availableTechs[0].ID
+	} else {
+		// Verify the requested tech is actually available
+		valid := false
+		for _, t := range availableTechs {
+			if t.ID == techID {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return nil, &AvailabilityError{
+				Reason:  model.ErrNoQualifiedTechnician,
+				Message: "Requested technician is not available for this time slot",
+			}
+		}
+	}
+
+	bayID := req.ServiceBayID
+	if bayID == "" {
+		bayID = availableBays[0].ID
+	} else {
+		valid := false
+		for _, b := range availableBays {
+			if b.ID == bayID {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return nil, &AvailabilityError{
+				Reason:  model.ErrNoServiceBayAvailable,
+				Message: "Requested service bay is not available for this time slot",
+			}
+		}
+	}
+
 	apt := &model.Appointment{
 		CustomerID:     req.CustomerID,
 		VehicleID:      req.VehicleID,
 		DealershipID:   req.DealershipID,
 		ServiceTypeID:  req.ServiceTypeID,
-		TechnicianID:   availableTechs[0].ID,
-		ServiceBayID:   availableBays[0].ID,
+		TechnicianID:   techID,
+		ServiceBayID:   bayID,
 		ScheduledStart: req.ScheduledStart,
 		ScheduledEnd:   scheduledEnd,
 		Notes:          req.Notes,

@@ -1,4 +1,4 @@
-module github.com/vuon9/keyloop-scheduler
+module github.com/vuon9/unified-service-scheduler
 
 go 1.23
 

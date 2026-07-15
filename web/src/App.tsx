@@ -9,6 +9,7 @@ import WeekView from './components/WeekView';
 import MonthView from './components/MonthView';
 import Sidebar from './components/Sidebar';
 import ToastContainer, { createToast } from './components/Toast';
+import { urlToState, stateToUrl } from './urlState';
 import styles from './App.module.css';
 
 const TABS: { key: TabFilter; label: string }[] = [
@@ -16,21 +17,50 @@ const TABS: { key: TabFilter; label: string }[] = [
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
+function getInitialView(): ViewMode {
+  const fromUrl = urlToState(window.location.search).view;
+  if (fromUrl === 'timeline' || fromUrl === 'week' || fromUrl === 'month') return fromUrl;
+  return 'timeline';
+}
+
+function getInitialDate(): Date {
+  const fromUrl = urlToState(window.location.search).date;
+  if (fromUrl) {
+    const d = new Date(fromUrl + 'T12:00:00'); // noon avoids timezone edge
+    if (!isNaN(d.getTime())) return d;
+  }
+  return new Date();
+}
+
+function getInitialTech(): string {
+  return urlToState(window.location.search).tech || '';
+}
+
+function getInitialBay(): string {
+  return urlToState(window.location.search).bay || '';
+}
+
+function getInitialTab(): TabFilter {
+  const fromUrl = urlToState(window.location.search).tab;
+  if (fromUrl === 'cancelled') return 'cancelled';
+  return 'confirmed';
+}
+
 export default function App() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [serviceBays, setServiceBays] = useState<ServiceBay[]>([]);
-  const [activeTab, setActiveTab] = useState<TabFilter>('confirmed');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showBooking, setShowBooking] = useState(false);
   const [showDetail, setShowDetail] = useState<Appointment | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>('timeline');
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedTech, setSelectedTech] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>(getInitialView);
+  const [currentDate, setCurrentDate] = useState(getInitialDate);
+  const [selectedTech, setSelectedTech] = useState(getInitialTech);
   const [selectedBay, setSelectedBay] = useState('');
   const [showSidebar, setShowSidebar] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabFilter>(getInitialTab);
 
   const addToast = useCallback((type: 'success' | 'error', message: string) => {
     const toast = createToast(type, message);
@@ -63,6 +93,12 @@ export default function App() {
     } catch { /* non-critical */ }
   }, []);
 
+  // Sync URL with current view state (for bookmarking / sharing)
+  useEffect(() => {
+    const url = stateToUrl(viewMode, currentDate, selectedTech, selectedBay, activeTab);
+    window.history.replaceState(null, '', url);
+  }, [viewMode, currentDate, selectedTech, selectedBay, activeTab]);
+
   useEffect(() => {
     loadAppointments();
     loadDataSources();
@@ -86,12 +122,10 @@ export default function App() {
 
   const handleSelectTech = (id: string) => {
     setSelectedTech(selectedTech === id ? '' : id);
-    setSelectedBay('');
   };
 
   const handleSelectBay = (id: string) => {
     setSelectedBay(selectedBay === id ? '' : id);
-    setSelectedTech('');
   };
 
   const hasFilters = selectedTech || selectedBay;
@@ -123,7 +157,7 @@ export default function App() {
               <rect width="32" height="32" rx="8" fill="#2563EB" />
               <text x="16" y="22" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="700" fontFamily="Inter, sans-serif">K</text>
             </svg>
-            <h1 className={styles.logo}>Keyloop Scheduler</h1>
+            <h1 className={styles.logo}>Unified Service Scheduler</h1>
           </div>
           <button className={styles.newBookingBtn} onClick={() => setShowBooking(true)}>
             + New Booking
@@ -145,13 +179,7 @@ export default function App() {
           {activeTab === 'confirmed' && (
             <button
               onClick={handleFabClick}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: '32px', height: '32px', border: 'none', borderRadius: '6px',
-                background: showSidebar ? '#E5E7EB' : 'transparent',
-                color: showSidebar ? '#374151' : '#6B7280',
-                cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s',
-              }}
+              className={`${styles.filterToggleBtn} ${showSidebar ? styles.filterToggleBtnActive : ''}`}
               aria-label="Toggle filters"
             >
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -230,6 +258,7 @@ export default function App() {
                 <TimelineView
                   appointments={appointments}
                   selectedTech={selectedTech}
+                  selectedBay={selectedBay}
                   currentDate={currentDate}
                   onViewDetail={handleViewDetail}
                 />
@@ -240,6 +269,7 @@ export default function App() {
                     appointments={appointments}
                     technicians={technicians}
                     selectedTech={selectedTech}
+                    selectedBay={selectedBay}
                     currentDate={currentDate}
                     onViewDetail={handleViewDetail}
                   />
@@ -251,6 +281,7 @@ export default function App() {
                     appointments={appointments}
                     technicians={technicians}
                     selectedTech={selectedTech}
+                    selectedBay={selectedBay}
                     currentDate={currentDate}
                     onViewDetail={handleViewDetail}
                     onDateChange={setCurrentDate}

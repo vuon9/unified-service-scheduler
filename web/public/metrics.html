@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Unified Service Scheduler — Live Metrics</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; }
+    h1 { font-size: 1.2rem; margin-bottom: 1.5rem; color: #58a6ff; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1rem; text-align: center; }
+    .card .label { font-size: 0.75rem; color: #8b949e; text-transform: uppercase; }
+    .card .value { font-size: 2rem; font-weight: 700; margin-top: 0.25rem; }
+    .card.bookings .value { color: #3fb950; }
+    .card.conflicts .value { color: #f85149; }
+    .card.cancels .value { color: #d29922; }
+    .updated { margin-top: 1.5rem; font-size: 0.7rem; color: #484f58; }
+    @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+    .fetching { animation: flash 0.4s ease; }
+  </style>
+</head>
+<body>
+  <h1>&#x1f6e0;&#xfe0f; Unified Service Scheduler - Live Metrics</h1>
+  <div class="grid">
+    <div class="card bookings"><div class="label">Bookings</div><div class="value" id="bookings">—</div></div>
+    <div class="card conflicts"><div class="label">Conflicts</div><div class="value" id="conflicts">—</div></div>
+    <div class="card cancels"><div class="label">Cancellations</div><div class="value" id="cancels">—</div></div>
+    <div class="card conflicts"><div class="label">Vehicle</div><div class="value" id="veh">—</div></div>
+    <div class="card conflicts"><div class="label">Tech</div><div class="value" id="tech">—</div></div>
+    <div class="card conflicts"><div class="label">Bay</div><div class="value" id="bay">—</div></div>
+    <div class="card"><div class="label">Memory Alloc</div><div class="value" id="mem" style="color:#8b949e">—</div></div>
+  </div>
+  <div class="updated" id="ts">—</div>
+  <script>
+    const API = '/debug/vars';
+    function fmt(n) { return n != null ? Number(n).toLocaleString() : '—'; }
+    function fmtMB(bytes) { return (bytes / 1024 / 1024).toFixed(1) + ' MB'; }
+    async function refresh() {
+      try {
+        const r = await fetch(API);
+        const d = await r.json();
+        document.getElementById('bookings').textContent = fmt(d.bookings_total);
+        document.getElementById('conflicts').textContent = fmt(d.bookings_conflicts);
+        document.getElementById('cancels').textContent = fmt(d.cancellations_total);
+        document.getElementById('veh').textContent = fmt(d.vehicle_conflicts);
+        document.getElementById('tech').textContent = fmt(d.tech_conflicts);
+        document.getElementById('bay').textContent = fmt(d.bay_conflicts);
+        document.getElementById('mem').textContent = fmtMB(d.memstats?.Alloc);
+        document.getElementById('ts').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+      } catch(e) {
+        document.getElementById('ts').textContent = 'Error: ' + e.message;
+      }
+    }
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
+</html>

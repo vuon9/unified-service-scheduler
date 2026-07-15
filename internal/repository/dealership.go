@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vuon9/keyloop-scheduler/internal/model"
+	"github.com/vuon9/unified-service-scheduler/internal/model"
 )
 
 // GetVehicle retrieves a vehicle by ID.

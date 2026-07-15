@@ -71,6 +71,8 @@ export interface CreateAppointmentRequest {
   dealership_id: string;
   service_type_id: string;
   scheduled_start: string;
+  technician_id?: string;
+  service_bay_id?: string;
   notes?: string;
 }
 
@@ -78,7 +80,6 @@ export type TabFilter = 'confirmed' | 'cancelled';
 
 export type ViewMode = 'timeline' | 'week' | 'month';
 
-export type SidebarTab = 'technicians' | 'bays';
 
 export type ToastType = 'success' | 'error';
 

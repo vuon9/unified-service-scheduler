@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/vuon9/keyloop-scheduler/internal/handler"
-	"github.com/vuon9/keyloop-scheduler/internal/repository"
-	"github.com/vuon9/keyloop-scheduler/internal/service"
+	"github.com/vuon9/unified-service-scheduler/internal/handler"
+	"github.com/vuon9/unified-service-scheduler/internal/repository"
+	"github.com/vuon9/unified-service-scheduler/internal/service"
 )
 
 func main() {
@@ -24,6 +24,9 @@ func main() {
 	}
 
 	// Migrations directory - check env first, then common locations
+	// This is for demo - so I wanted to keep it simple
+	// but for production application, migration could be moved out and to be running as a separated command,
+	// depends on how the app infrastructure looks like
 	migrationsDir := os.Getenv("MIGRATIONS_DIR")
 	if migrationsDir == "" {
 		// Try common locations: relative to binary, Docker path, local dev path

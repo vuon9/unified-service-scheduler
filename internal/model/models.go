@@ -80,6 +80,8 @@ type BookAppointmentRequest struct {
 	VehicleID      string    `json:"vehicle_id"`
 	DealershipID   string    `json:"dealership_id"`
 	ServiceTypeID  string    `json:"service_type_id"`
+	TechnicianID   string    `json:"technician_id"`
+	ServiceBayID   string    `json:"service_bay_id"`
 	Notes          string    `json:"notes"`
 	ScheduledStart time.Time `json:"scheduled_start"`
 }

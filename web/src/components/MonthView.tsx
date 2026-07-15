@@ -1,9 +1,11 @@
 import type { Appointment, Technician } from '../types';
+import { toDateKey } from '../dates';
 
 interface Props {
   appointments: Appointment[];
   technicians: Technician[];
   selectedTech: string;
+  selectedBay: string;
   currentDate: Date;
   onViewDetail: (apt: Appointment) => void;
   onDateChange: (d: Date) => void;
@@ -12,7 +14,7 @@ interface Props {
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const COLORS = ['#2563EB', '#16A34A', '#9333EA', '#D97706', '#DC2626', '#0891B2'];
 
-export default function MonthView({ appointments, technicians, selectedTech, currentDate, onViewDetail, onDateChange }: Props) {
+export default function MonthView({ appointments, technicians, selectedTech, selectedBay, currentDate, onViewDetail, onDateChange }: Props) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
@@ -32,13 +34,15 @@ export default function MonthView({ appointments, technicians, selectedTech, cur
   const monthAppts = appointments.filter(a => {
     if (a.status !== 'confirmed') return false;
     const s = new Date(a.scheduled_start);
-    return s >= monthStart && s <= monthEnd;
+    if (!(s >= monthStart && s <= monthEnd)) return false;
+    if (selectedBay && a.service_bay_id !== selectedBay) return false;
+    return true;
   });
 
   // Build a map of date -> appointments
   const byDay: Record<string, Appointment[]> = {};
   monthAppts.forEach(a => {
-    const key = new Date(a.scheduled_start).toISOString().split('T')[0];
+    const key = toDateKey(a.scheduled_start);
     if (!byDay[key]) byDay[key] = [];
     byDay[key].push(a);
   });
@@ -47,7 +51,7 @@ export default function MonthView({ appointments, technicians, selectedTech, cur
   technicians.forEach(t => { techNameById[t.id] = t.name; });
 
   const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = toDateKey(now);
 
   return (
     <div style={{ display: 'inline-block', minWidth: '100%', background: '#fff', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
@@ -67,7 +71,7 @@ export default function MonthView({ appointments, technicians, selectedTech, cur
             return <div key={`pad-${i}`} style={{ borderRight: '1px solid #E5E7EB', borderBottom: '1px solid #E5E7EB', background: '#F9FAFB' }} />;
           }
 
-          const dateStr = date.toISOString().split('T')[0];
+          const dateStr = toDateKey(date);
           const isToday = dateStr === todayStr;
           const apts = byDay[dateStr] || [];
           const filteredApts = selectedTech

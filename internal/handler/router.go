@@ -7,8 +7,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/vuon9/keyloop-scheduler/internal/repository"
-	"github.com/vuon9/keyloop-scheduler/internal/service"
+	"github.com/vuon9/unified-service-scheduler/internal/repository"
+	"github.com/vuon9/unified-service-scheduler/internal/service"
 )
 
 // NewRouter creates and configures the chi router with all routes and middleware.

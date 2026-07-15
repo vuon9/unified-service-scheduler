@@ -1,7 +1,7 @@
 .PHONY: build run test docker-build clean dev dev-frontend
 
 # Binary name
-BINARY_NAME=keyloop-scheduler
+BINARY_NAME=unified-service-scheduler
 
 # Build the Go binary
 build:

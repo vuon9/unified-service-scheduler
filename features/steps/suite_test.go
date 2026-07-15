@@ -8,7 +8,7 @@ import (
 
 func TestFeatures(t *testing.T) {
 	suite := godog.TestSuite{
-		Name:                "keyloop-scheduler",
+		Name:                "unified-service-scheduler",
 		ScenarioInitializer: InitializeScenario,
 		Options: &godog.Options{
 			Format:   "pretty",
