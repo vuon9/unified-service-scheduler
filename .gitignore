@@ -26,3 +26,4 @@ data/
 # Environment
 .env
 .env.local
+/unified-service-scheduler
